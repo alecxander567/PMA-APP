@@ -17,13 +17,23 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { useAuth } from "../context/AuthContext";
 import FooterMenu from "../components/FooterMenu";
+import { useProjects } from "../hooks/useProject";
+import ProjectDetailsModal, {
+  ConfirmModal,
+} from "../components/ProjectDetailsModal";
 
 const { width } = Dimensions.get("window");
 
 export default function HomeScreen({ navigation }) {
   const { user, logout } = useAuth();
+
+  const { deleteProject } = useProjects(user.email);
+  const { projects, loading } = useProjects(user?.email);
   const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState(null);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -54,22 +64,52 @@ export default function HomeScreen({ navigation }) {
     loadProfile();
   }, [user]);
 
-  // Mock Data
+  const openProjectModal = (project) => {
+    setSelectedProject(project);
+    setModalVisible(true);
+  };
+
+  const closeProjectModal = () => {
+    setModalVisible(false);
+    setTimeout(() => setSelectedProject(null), 300);
+  };
+
+  const handleEditProject = (project) => {
+    navigation.navigate("CreateProject", { project });
+  };
+
+  const handleDeletePress = (projectId) => {
+    setProjectToDelete(projectId);
+    setDeleteModalVisible(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!projectToDelete) return;
+
+    const result = await deleteProject(projectToDelete);
+    if (!result.success) {
+      alert("Failed to delete: " + result.error);
+    }
+
+    setDeleteModalVisible(false);
+    setProjectToDelete(null);
+  };
+
   const statsData = [
     {
-      id: "1",
-      iconName: "clipboard-check-outline",
-      number: 3,
+      id: "projects",
+      iconName: "folder-outline",
+      number: projects.length,
       label: "Projects",
     },
     {
-      id: "2",
+      id: "tasks",
       iconName: "check-circle-outline",
       number: 12,
       label: "Tasks",
     },
     {
-      id: "3",
+      id: "friends",
       iconName: "account-group-outline",
       number: 5,
       label: "Friends",
@@ -114,45 +154,84 @@ export default function HomeScreen({ navigation }) {
         colors={["#0A0F2C", "#1B103F", "#4A0E2E"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.gradient}
-      >
+        style={styles.gradient}>
         <ScrollView
           style={styles.container}
-          contentContainerStyle={styles.contentContainer}
-        >
+          contentContainerStyle={styles.contentContainer}>
           <View style={styles.header}>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <View style={styles.profileCircle}>
-                <Text style={{ color: "#fff", fontWeight: "700" }}>
+                <Text
+                  style={{ color: "#fff", fontWeight: "700", fontSize: 18 }}>
                   {profile?.username?.charAt(0)?.toUpperCase() || "U"}
                 </Text>
               </View>
-              <View>
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <MaterialCommunityIcons
-                    name="hand-wave-outline"
-                    size={18}
-                    color="#C7C9D9"
-                    style={{ marginRight: 6 }}
-                  />
-                  <Text style={styles.greeting}>
-                    Welcome back, {profile?.username || user?.email?.split("@")[0] || "User"}
-                  </Text>
-                </View>
-                <Text style={styles.title}>Dashboard</Text>
-                <Text style={styles.emailText}>
-                  {profile?.email || user?.email || "No email"}
-                </Text>
-              </View>
+
+              <Text style={styles.title}>Dashboard</Text>
             </View>
 
             <TouchableOpacity
-              style={styles.logoutButton}
               onPress={handleLogout}
               activeOpacity={0.8}
-            >
-              <Text style={styles.logoutText}>Log Out</Text>
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                paddingVertical: 8,
+                paddingHorizontal: 16,
+                borderRadius: 8,
+                borderWidth: 2,
+                borderColor: "#F43F5E",
+                shadowColor: "#F43F5E",
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.9,
+                shadowRadius: 6,
+                elevation: 6,
+              }}>
+              <MaterialCommunityIcons
+                name="logout"
+                size={16}
+                color="#F43F5E"
+                style={{
+                  textShadowColor: "#FF0000",
+                  textShadowOffset: { width: 0, height: 0 },
+                  textShadowRadius: 6,
+                }}
+              />
+              <Text
+                style={{
+                  color: "#F43F5E",
+                  fontWeight: "600",
+                  fontSize: 13,
+                  marginLeft: 6,
+                  textShadowColor: "#F43F5E",
+                  textShadowOffset: { width: 0, height: 0 },
+                  textShadowRadius: 6,
+                }}>
+                Log Out
+              </Text>
             </TouchableOpacity>
+          </View>
+
+          <View style={styles.welcomeContainer}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                marginBottom: 6,
+              }}>
+              <Text style={styles.welcomeText}>
+                Welcome back,{" "}
+                {profile?.username || user?.email?.split("@")[0] || "User"}!
+              </Text>
+              <MaterialCommunityIcons
+                name="hand-wave-outline"
+                size={20}
+                color="#93C5FD"
+                style={{ marginLeft: 8 }}
+              />
+            </View>
+            <Text style={styles.emailText}>{user?.email}</Text>
           </View>
 
           <FlatList
@@ -177,22 +256,113 @@ export default function HomeScreen({ navigation }) {
                 />{" "}
                 Projects
               </Text>
-              <TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => navigation.navigate("CreateProject")}>
                 <Text style={styles.addButton}>+ Add</Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.emptyState}>
-              <MaterialCommunityIcons
-                name="folder-open-outline"
-                size={48}
-                color="rgba(255,255,255,0.3)"
-              />
-              <Text style={styles.emptyText}>No projects yet</Text>
-              <Text style={styles.emptySubtext}>
-                Create your first project to get started
-              </Text>
-            </View>
+
+            {loading ? (
+              <Text style={styles.emptyText}>Loading...</Text>
+            ) : projects.length === 0 ? (
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons
+                  name="folder-open-outline"
+                  size={48}
+                  color="rgba(255,255,255,0.3)"
+                />
+                <Text style={styles.emptyText}>No projects yet</Text>
+                <Text style={styles.emptySubtext}>
+                  Create your first project to get started
+                </Text>
+              </View>
+            ) : (
+              <ScrollView
+                style={{ maxHeight: 300 }}
+                showsVerticalScrollIndicator={false}
+                nestedScrollEnabled={true}>
+                {projects.map((project) => (
+                  <View key={project.id} style={styles.projectCard}>
+                    <TouchableOpacity
+                      style={styles.projectContent}
+                      onPress={() => openProjectModal(project)}>
+                      <View style={styles.projectHeader}>
+                        <Text style={styles.projectTitle}>{project.title}</Text>
+                        <View
+                          style={[
+                            styles.projectTypeBadge,
+                            project.type === "group" && styles.groupBadge,
+                          ]}>
+                          <Text style={styles.projectTypeText}>
+                            {project.type === "single" ? "Solo" : "Group"}
+                          </Text>
+                        </View>
+                      </View>
+                      {project.description && (
+                        <Text
+                          style={styles.projectDescription}
+                          numberOfLines={2}>
+                          {project.description}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+
+                    <View style={styles.projectFooter}>
+                      <Text style={styles.projectMembers}>
+                        <MaterialCommunityIcons
+                          name="account-group"
+                          size={14}
+                          color="#9CA3AF"
+                        />{" "}
+                        {project.members.length} member
+                        {project.members.length > 1 ? "s" : ""}
+                      </Text>
+
+                      <View style={styles.cardActions}>
+                        <TouchableOpacity
+                          onPress={() => handleEditProject(project)}
+                          style={styles.actionButtonHorizontal}>
+                          <MaterialCommunityIcons
+                            name="pencil-outline"
+                            size={16}
+                            color="#FBBF24"
+                          />
+                          <Text style={styles.actionTextHorizontal}>Edit</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          onPress={() => handleDeletePress(project.id)}
+                          style={styles.actionButtonHorizontal}>
+                          <MaterialCommunityIcons
+                            name="trash-can-outline"
+                            size={16}
+                            color="#EF4444"
+                          />
+                          <Text style={styles.actionTextHorizontal}>
+                            Delete
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
           </View>
+
+          <ProjectDetailsModal
+            visible={modalVisible}
+            project={selectedProject}
+            onClose={closeProjectModal}
+          />
+
+          <ConfirmModal
+            visible={deleteModalVisible}
+            title="Delete Project"
+            message="Are you sure you want to delete this project? This action cannot be undone."
+            onCancel={() => setDeleteModalVisible(false)}
+            onConfirm={handleConfirmDelete}
+          />
 
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -292,54 +462,26 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 28,
+    alignItems: "center",
+    marginBottom: 20,
     paddingTop: 10,
   },
   profileCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 45,
+    height: 45,
+    borderRadius: 23,
     backgroundColor: "#6B5DD6",
     borderWidth: 2,
     borderColor: "#FFFFFF",
-    marginRight: 10,
+    marginRight: 12,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
-  greeting: {
-    color: "#C7C9D9",
-    fontSize: 14,
-  },
   title: {
     color: "#FFFFFF",
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "700",
-  },
-  emailText: {
-    color: "#9CA3AF",
-    fontSize: 12,
-    marginTop: 2,
-  },
-  logoutButton: {
-    paddingVertical: width > 400 ? 10 : 8,
-    paddingHorizontal: width > 400 ? 20 : 16,
-    backgroundColor: "#4F46E5",
-    borderRadius: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-    alignSelf: "flex-start",
-    marginTop: 20,
-  },
-  logoutText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
-    fontSize: width > 768 ? 16 : 15,
-    textAlign: "center",
   },
   statsContainer: {
     paddingVertical: 4,
@@ -380,6 +522,21 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
   },
+  welcomeContainer: {
+    marginBottom: 20,
+    paddingHorizontal: 4,
+  },
+  welcomeText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  emailText: {
+    color: "#9CA3AF",
+    fontSize: 14,
+    fontWeight: "400",
+    marginTop: 2,
+  },
   section: {
     backgroundColor: "rgba(255,255,255,0.06)",
     borderRadius: 16,
@@ -398,6 +555,55 @@ const styles = StyleSheet.create({
     color: "#E5E7EB",
     fontSize: 18,
     fontWeight: "600",
+  },
+  projectCard: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  projectHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  projectTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
+    flex: 1,
+  },
+  projectTypeBadge: {
+    backgroundColor: "rgba(59, 130, 246, 0.2)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  groupBadge: {
+    backgroundColor: "rgba(168, 85, 247, 0.2)",
+  },
+  projectTypeText: {
+    fontSize: 12,
+    color: "#93C5FD",
+    fontWeight: "500",
+  },
+  projectDescription: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    marginBottom: 12,
+  },
+  projectFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  projectMembers: {
+    fontSize: 12,
+    color: "#9CA3AF",
   },
   addButton: {
     color: "#F43F5E",
@@ -426,5 +632,27 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 60,
+  },
+  cardActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 8,
+  },
+
+  actionButtonHorizontal: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
+
+  actionTextHorizontal: {
+    color: "#FFF",
+    fontSize: 12,
+    marginLeft: 4,
   },
 });

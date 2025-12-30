@@ -24,7 +24,7 @@ export default function LoginScreen({ navigation }) {
 
   useEffect(() => {
     if (user) {
-      navigation.replace("Dashboard"); 
+      navigation.replace("Dashboard");
     }
   }, [user]);
 
@@ -37,16 +37,13 @@ export default function LoginScreen({ navigation }) {
       colors={["#0A0F2C", "#1B103F", "#4A0E2E"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={styles.gradient}
-    >
+      style={styles.gradient}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+        behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
+          keyboardShouldPersistTaps="handled">
           <View>
             <View style={styles.header}>
               <View style={styles.iconContainer}>
@@ -99,8 +96,7 @@ export default function LoginScreen({ navigation }) {
                 style={[styles.button, loading && styles.buttonDisabled]}
                 onPress={handleLogin}
                 disabled={loading}
-                activeOpacity={0.8}
-              >
+                activeOpacity={0.8}>
                 <Text style={styles.buttonText}>
                   {loading ? "Signing in..." : "Sign In"}
                 </Text>
@@ -114,8 +110,7 @@ export default function LoginScreen({ navigation }) {
 
               <TouchableOpacity
                 onPress={() => navigation.navigate("Register")}
-                style={styles.registerContainer}
-              >
+                style={styles.registerContainer}>
                 <Text style={styles.registerText}>
                   Don't have an account?{" "}
                   <Text style={styles.registerLink}>Create one</Text>

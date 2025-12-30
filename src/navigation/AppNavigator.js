@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import LoginScreen from "../screens/LoginScreen";
 import RegisterScreen from "../screens/RegisterScreen";
 import HomeScreen from "../screens/HomeScreen";
+import CreateProjectScreen from "../screens/CreateProjectScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -17,11 +18,19 @@ export default function AppNavigator() {
     <NavigationContainer>
       <Stack.Navigator>
         {user ? (
-          <Stack.Screen
-            name="Home"
-            component={HomeScreen}
-            options={{ headerShown: false }}
-          />
+          <>
+            <Stack.Screen
+              name="Home"
+              component={HomeScreen}
+              options={{ headerShown: false }}
+            />
+
+            <Stack.Screen
+              name="CreateProject"
+              component={CreateProjectScreen}
+              options={{ title: "Create Project", headerShown: false }}
+            />
+          </>
         ) : (
           <>
             <Stack.Screen

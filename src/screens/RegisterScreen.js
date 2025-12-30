@@ -17,13 +17,11 @@ import { useAuth } from "../context/AuthContext";
 const { width, height } = Dimensions.get("window");
 
 export default function RegisterScreen({ navigation }) {
-  // State
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
 
-  // Auth
   const { register, loading } = useAuth();
 
   const handleRegister = async () => {
@@ -36,7 +34,6 @@ export default function RegisterScreen({ navigation }) {
 
     try {
       await register(email, password, username);
-
     } catch (err) {
       setError(err.message);
     }
@@ -47,16 +44,13 @@ export default function RegisterScreen({ navigation }) {
       colors={["#0A0F2C", "#1B103F", "#4A0E2E"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={styles.gradient}
-    >
+      style={styles.gradient}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+        behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
+          keyboardShouldPersistTaps="handled">
           <View>
             <View style={styles.header}>
               <View style={styles.iconContainer}>
@@ -67,9 +61,7 @@ export default function RegisterScreen({ navigation }) {
                 />
               </View>
               <Text style={styles.title}>Get Started</Text>
-              <Text style={styles.subtitle}>
-                Create your account to begin
-              </Text>
+              <Text style={styles.subtitle}>Create your account to begin</Text>
             </View>
 
             <View style={styles.form}>
@@ -121,8 +113,7 @@ export default function RegisterScreen({ navigation }) {
                 style={[styles.button, loading && styles.buttonDisabled]}
                 onPress={handleRegister}
                 disabled={loading}
-                activeOpacity={0.8}
-              >
+                activeOpacity={0.8}>
                 <Text style={styles.buttonText}>
                   {loading ? "Creating account..." : "Create Account"}
                 </Text>
@@ -136,8 +127,7 @@ export default function RegisterScreen({ navigation }) {
 
               <TouchableOpacity
                 onPress={() => navigation.navigate("Login")}
-                style={styles.loginContainer}
-              >
+                style={styles.loginContainer}>
                 <Text style={styles.loginText}>
                   Already have an account?{" "}
                   <Text style={styles.loginLink}>Sign in</Text>
@@ -277,4 +267,3 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
-

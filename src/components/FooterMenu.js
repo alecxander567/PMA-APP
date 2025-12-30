@@ -24,8 +24,7 @@ export default function FooterMenu({
         key={index}
         style={styles.footerButton}
         onPress={onPress}
-        activeOpacity={0.8}
-      >
+        activeOpacity={0.8}>
         <MaterialCommunityIcons
           name={iconName}
           size={24}
@@ -34,6 +33,7 @@ export default function FooterMenu({
         <Text style={[styles.footerText, isActive && { color: "#FFFFFF" }]}>
           {label}
         </Text>
+        {isActive && <View style={styles.underline} />}
       </TouchableOpacity>
     );
   };
@@ -76,5 +76,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
     fontWeight: "600",
+  },
+  underline: {
+    height: 2,
+    width: 20,
+    backgroundColor: "#FFFFFF",
+    marginTop: 4,
+    borderRadius: 1,
   },
 });
