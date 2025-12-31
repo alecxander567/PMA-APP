@@ -25,7 +25,10 @@ import {
 import { db } from "../services/firebase";
 import { useAuth } from "../context/AuthContext";
 import FooterMenu from "../components/FooterMenu";
+import FloatingBubble from "../components/FloatingBubble";
+
 import { useProjects } from "../hooks/useProject";
+import * as Animatable from "react-native-animatable";
 import ProjectDetailsModal, {
   ConfirmModal,
 } from "../components/ProjectDetailsModal";
@@ -202,11 +205,11 @@ export default function HomeScreen({ navigation }) {
 
   const renderStatCard = ({ item }) => (
     <View style={styles.statCardOuter}>
-      <View style={styles.statCardContent}>
+      <View style={[styles.statCardContent, { backgroundColor: "#0A0F2C" }]}>
         <MaterialCommunityIcons
           name={item.iconName}
           size={32}
-          color="#E5E7EB"
+          color="#FFFFFF"
           style={{ marginBottom: 8 }}
         />
         <Text style={styles.statNumber}>{item.number}</Text>
@@ -235,13 +238,12 @@ export default function HomeScreen({ navigation }) {
           contentContainerStyle={styles.contentContainer}>
           <View style={styles.header}>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <View style={styles.profileCircle}>
-                <Text
-                  style={{ color: "#fff", fontWeight: "700", fontSize: 18 }}>
-                  {profile?.username?.charAt(0)?.toUpperCase() || "U"}
-                </Text>
-              </View>
-
+              <MaterialCommunityIcons
+                name="view-dashboard"
+                size={24}
+                color="#FFFFFF"
+                style={{ marginRight: 8 }}
+              />
               <Text style={styles.title}>Dashboard</Text>
             </View>
 
@@ -254,34 +256,18 @@ export default function HomeScreen({ navigation }) {
                 justifyContent: "center",
                 paddingVertical: 8,
                 paddingHorizontal: 16,
-                borderRadius: 8,
-                borderWidth: 2,
-                borderColor: "#F43F5E",
-                shadowColor: "#F43F5E",
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.9,
-                shadowRadius: 6,
-                elevation: 6,
               }}>
               <MaterialCommunityIcons
                 name="logout"
                 size={16}
                 color="#F43F5E"
-                style={{
-                  textShadowColor: "#FF0000",
-                  textShadowOffset: { width: 0, height: 0 },
-                  textShadowRadius: 6,
-                }}
+                style={{ marginRight: 6 }}
               />
               <Text
                 style={{
                   color: "#F43F5E",
                   fontWeight: "600",
                   fontSize: 13,
-                  marginLeft: 6,
-                  textShadowColor: "#F43F5E",
-                  textShadowOffset: { width: 0, height: 0 },
-                  textShadowRadius: 6,
                 }}>
                 Log Out
               </Text>
@@ -295,19 +281,62 @@ export default function HomeScreen({ navigation }) {
                 alignItems: "center",
                 marginBottom: 6,
               }}>
-              <Text style={styles.welcomeText}>
-                Welcome back,{" "}
-                {profile?.username || user?.email?.split("@")[0] || "User"}!
-              </Text>
-              <MaterialCommunityIcons
-                name="hand-wave-outline"
-                size={20}
-                color="#93C5FD"
-                style={{ marginLeft: 8 }}
-              />
+              <View style={styles.profileCircle}>
+                <Text
+                  style={{ color: "#fff", fontWeight: "700", fontSize: 18 }}>
+                  {profile?.username?.charAt(0)?.toUpperCase() || "U"}
+                </Text>
+              </View>
+
+              <View style={{ marginLeft: 8, flex: 1 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                  }}>
+                  <Text style={styles.welcomeText}>
+                    Welcome back,{" "}
+                    {profile?.username || user?.email?.split("@")[0] || "User"}!
+                  </Text>
+                  <MaterialCommunityIcons
+                    name="hand-wave-outline"
+                    size={20}
+                    color="#93C5FD"
+                    style={{ marginLeft: 6 }}
+                  />
+                </View>
+                <Text style={styles.emailText}>{user?.email}</Text>
+              </View>
             </View>
-            <Text style={styles.emailText}>{user?.email}</Text>
           </View>
+
+          <LinearGradient
+            colors={["#0A0F2C", "#2A0A3D", "#7F1D1D"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroSection}>
+            <FloatingBubble
+              size={40}
+              color="#93C5FD"
+              style={{ position: "absolute", top: 20, right: 30 }}
+            />
+            <FloatingBubble
+              size={30}
+              color="#F43F5E"
+              style={{ position: "absolute", bottom: 30, left: 40 }}
+            />
+            <FloatingBubble
+              size={20}
+              color="#22D3EE"
+              style={{ position: "absolute", bottom: 10, right: 20 }}
+            />
+
+            <Text style={styles.heroTitle}>Project Management App</Text>
+            <Text style={styles.heroSubtitle}>
+              Manage your projects easily and efficiently
+            </Text>
+          </LinearGradient>
 
           <FlatList
             data={statsData}
@@ -514,9 +543,13 @@ export default function HomeScreen({ navigation }) {
                             <MaterialCommunityIcons
                               name={isExpanded ? "chevron-up" : "chevron-down"}
                               size={24}
-                              color="#93C5FD"
+                              color="#FFFFFF"
                             />
                           </View>
+
+                          <Text style={styles.progressPercentage}>
+                            {Math.round(projectProgress.progress * 100)}%
+                          </Text>
 
                           <View style={styles.progressBarBackground}>
                             <View
@@ -527,10 +560,23 @@ export default function HomeScreen({ navigation }) {
                             />
                           </View>
 
-                          <Text style={styles.progressText}>
-                            {projectProgress.completed} of{" "}
-                            {projectProgress.total} tasks completed
-                          </Text>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              marginTop: 4,
+                            }}>
+                            <MaterialCommunityIcons
+                              name="progress-check"
+                              size={16}
+                              color="#6EE7B7"
+                              style={{ marginRight: 6 }}
+                            />
+                            <Text style={styles.progressText}>
+                              {projectProgress.completed} of{" "}
+                              {projectProgress.total} tasks completed
+                            </Text>
+                          </View>
                         </View>
                       </TouchableOpacity>
 
@@ -709,53 +755,56 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     marginBottom: 20,
   },
+
   statCardOuter: {
     marginRight: 12,
-    width: width > 768 ? 180 : width * 0.6,
-    height: 140,
+    width: width > 768 ? 180 : width * 0.55,
+    height: 100,
     overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(124,30,255,0.25)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    backgroundColor: "transparent",
+    shadowColor: "#A020F0",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
     shadowRadius: 6,
-    elevation: 5,
+    elevation: 6,
   },
+
   statCardContent: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
   },
   statNumber: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "800",
     color: "#FFFFFF",
     marginBottom: 4,
     textAlign: "center",
   },
+
   statLabel: {
-    fontSize: 13,
+    fontSize: 11,
     color: "#C7C9D9",
     fontWeight: "600",
     textAlign: "center",
   },
   welcomeContainer: {
     marginBottom: 20,
-    paddingHorizontal: 4,
+    paddingHorizontal: 12,
   },
   welcomeText: {
     color: "#FFFFFF",
-    fontSize: 18,
+    fontSize: 13,
     fontWeight: "600",
+    flexShrink: 1,
+    flexWrap: "wrap",
   },
+
   emailText: {
     color: "#9CA3AF",
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "400",
     marginTop: 2,
   },
@@ -919,7 +968,7 @@ const styles = StyleSheet.create({
   projectTaskTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#93C5FD",
+    color: "#FFFFFF",
   },
   tasksList: {
     marginTop: 12,
@@ -935,5 +984,36 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
+  },
+  progressPercentage: {
+    color: "#F43F5E",
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 4,
+    textAlign: "right",
+  },
+  heroSection: {
+    width: "100%",
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    alignItems: "flex-start",
+    justifyContent: "center",
+    borderRadius: 16,
+    marginBottom: 20,
+  },
+
+  heroTitle: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "800",
+    textAlign: "left",
+    marginBottom: 6,
+  },
+
+  heroSubtitle: {
+    color: "#9CA3AF",
+    fontSize: 14,
+    fontWeight: "400",
+    textAlign: "left",
   },
 });
