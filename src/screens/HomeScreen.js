@@ -10,6 +10,7 @@ import {
   SafeAreaView,
   FlatList,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -18,6 +19,7 @@ import { db } from "../services/firebase";
 import { useAuth } from "../context/AuthContext";
 import FooterMenu from "../components/FooterMenu";
 import { useProjects } from "../hooks/useProject";
+import { useTasks } from "../hooks/useTasks";
 import ProjectDetailsModal, {
   ConfirmModal,
 } from "../components/ProjectDetailsModal";
@@ -27,13 +29,47 @@ const { width } = Dimensions.get("window");
 export default function HomeScreen({ navigation }) {
   const { user, logout } = useAuth();
 
-  const { deleteProject } = useProjects(user.email);
-  const { projects, loading } = useProjects(user?.email);
+  const {
+    tasks = [],
+    toggleTaskCompletion,
+    deleteTask,
+    addTask,
+    editTask,
+  } = useTasks(user?.email);
+
+  const [newTask, setNewTask] = useState("");
+
+  const handleAddTask = async () => {
+    if (editingTaskId) {
+      if (!editingText.trim()) return;
+      const result = await editTask(editingTaskId, { title: editingText });
+      if (result.success) {
+        setEditingTaskId(null);
+        setEditingText("");
+      } else {
+        alert("Failed to save task: " + result.error);
+      }
+    } else {
+      if (!newTask.trim()) return;
+      const result = await addTask({ title: newTask, completed: false });
+      if (result.success) setNewTask("");
+      else alert("Failed to add task: " + result.error);
+    }
+  };
+
+  const totalTasks = tasks?.length || 0;
+  const completedTasks = tasks?.filter((task) => task.completed)?.length || 0;
+  const progress = totalTasks === 0 ? 0 : completedTasks / totalTasks;
+
+  const { projects, loading, deleteProject } = useProjects(user?.email);
+
   const [profile, setProfile] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState(null);
+  const [editingTaskId, setEditingTaskId] = useState(null);
+  const [editingText, setEditingText] = useState("");
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -105,7 +141,7 @@ export default function HomeScreen({ navigation }) {
     {
       id: "tasks",
       iconName: "check-circle-outline",
-      number: 12,
+      number: tasks.length,
       label: "Tasks",
     },
     {
@@ -307,6 +343,24 @@ export default function HomeScreen({ navigation }) {
                       )}
                     </TouchableOpacity>
 
+                    {project.status === "ongoing" ? (
+                      <LinearGradient
+                        colors={["#FFD700", "#FFA500"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.statusBadge}>
+                        <Text style={styles.statusText}>Ongoing</Text>
+                      </LinearGradient>
+                    ) : (
+                      <LinearGradient
+                        colors={["#22C55E", "#16A34A"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.statusBadge}>
+                        <Text style={styles.statusText}>Completed</Text>
+                      </LinearGradient>
+                    )}
+
                     <View style={styles.projectFooter}>
                       <Text style={styles.projectMembers}>
                         <MaterialCommunityIcons
@@ -374,21 +428,158 @@ export default function HomeScreen({ navigation }) {
                 />{" "}
                 Your Tasks
               </Text>
-              <TouchableOpacity>
-                <Text style={styles.addButton}>+ Add</Text>
+              <TouchableOpacity onPress={handleAddTask}>
+                <Text style={styles.addButton}>
+                  {editingTaskId ? "Save" : "+ Add"}
+                </Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.emptyState}>
-              <MaterialCommunityIcons
-                name="text-box-check-outline"
-                size={48}
-                color="rgba(255,255,255,0.3)"
-              />
-              <Text style={styles.emptyText}>No tasks assigned</Text>
-              <Text style={styles.emptySubtext}>
-                Tasks will appear here when assigned
-              </Text>
+
+            <TextInput
+              value={editingTaskId ? editingText : newTask}
+              onChangeText={editingTaskId ? setEditingText : setNewTask}
+              placeholder={editingTaskId ? "Edit task..." : "Enter new task..."}
+              placeholderTextColor="rgba(255,255,255,0.5)"
+              style={{
+                backgroundColor: "rgba(255,255,255,0.05)",
+                color: "#fff",
+                padding: 10,
+                borderRadius: 8,
+                marginBottom: 10,
+              }}
+            />
+
+            <View style={styles.progressBarBackground}>
+              <View style={[styles.progressBarFill, { flex: progress }]} />
+              <View style={{ flex: 1 - progress }} />
             </View>
+            <Text style={styles.progressText}>
+              {completedTasks} of {totalTasks} tasks completed
+            </Text>
+
+            {tasks.length === 0 ? (
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons
+                  name="text-box-check-outline"
+                  size={48}
+                  color="rgba(255,255,255,0.3)"
+                />
+                <Text style={styles.emptyText}>No tasks assigned</Text>
+                <Text style={styles.emptySubtext}>
+                  Tasks will appear here when assigned
+                </Text>
+              </View>
+            ) : (
+              <ScrollView
+                style={{ maxHeight: 300, marginTop: 10 }}
+                nestedScrollEnabled
+                showsVerticalScrollIndicator>
+                {tasks.map((task) => {
+                  const isEditing = editingTaskId === task.id;
+
+                  return (
+                    <View
+                      key={task.id}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        backgroundColor: "rgba(255,255,255,0.05)",
+                        padding: 10,
+                        borderRadius: 8,
+                        marginBottom: 8,
+                      }}>
+                      <TouchableOpacity
+                        onPress={() =>
+                          toggleTaskCompletion(task.id, !task.completed)
+                        }
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          flex: 1,
+                        }}>
+                        <View
+                          style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: 4,
+                            borderWidth: 2,
+                            borderColor: "#fff",
+                            marginRight: 10,
+                            justifyContent: "center",
+                            alignItems: "center",
+                            backgroundColor: task.completed
+                              ? "#F43F5E"
+                              : "transparent",
+                          }}>
+                          {task.completed && (
+                            <MaterialCommunityIcons
+                              name="check"
+                              size={14}
+                              color="#fff"
+                            />
+                          )}
+                        </View>
+
+                        {isEditing ? (
+                          <TextInput
+                            value={editingText}
+                            onChangeText={setEditingText}
+                            onSubmitEditing={async () => {
+                              await editTask(task.id, { title: editingText });
+                              setEditingTaskId(null);
+                            }}
+                            onBlur={() => setEditingTaskId(null)}
+                            style={{
+                              flex: 1,
+                              color: "#fff",
+                              borderBottomWidth: 1,
+                              borderBottomColor: "#7C1EFF",
+                            }}
+                            autoFocus
+                          />
+                        ) : (
+                          <Text
+                            style={{
+                              color: "#fff",
+                              textDecorationLine: task.completed
+                                ? "line-through"
+                                : "none",
+                              flexShrink: 1,
+                            }}>
+                            {task.title}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+
+                      <View style={{ flexDirection: "row", marginLeft: 10 }}>
+                        {!isEditing && (
+                          <TouchableOpacity
+                            onPress={() => {
+                              setEditingTaskId(task.id);
+                              setEditingText(task.title);
+                            }}
+                            style={{ marginRight: 10 }}>
+                            <MaterialCommunityIcons
+                              name="pencil-outline"
+                              size={20}
+                              color="#FBBF24"
+                            />
+                          </TouchableOpacity>
+                        )}
+                        <TouchableOpacity onPress={() => deleteTask(task.id)}>
+                          <MaterialCommunityIcons
+                            name="trash-can-outline"
+                            size={20}
+                            color="#EF4444"
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            )}
           </View>
 
           <View style={styles.section}>
@@ -654,5 +845,48 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontSize: 12,
     marginLeft: 4,
+  },
+  statusBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 6,
+    alignSelf: "flex-start",
+  },
+  ongoingBadge: {
+    backgroundColor: "#2563EB",
+  },
+  completedBadge: {
+    backgroundColor: "#16A34A",
+  },
+  statusText: {
+    color: "#F9FAFB",
+    fontSize: 10,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  progressBarBackground: {
+    flexDirection: "row",
+    height: 10,
+    borderRadius: 6,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    overflow: "hidden",
+    marginBottom: 6,
+  },
+  progressBarFill: {
+    backgroundColor: "#F43F5E",
+  },
+  progressText: {
+    fontSize: 12,
+    color: "#E5E7EB",
+    marginBottom: 12,
+    fontWeight: "500",
+  },
+  taskItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 8,
+    marginBottom: 8,
   },
 });

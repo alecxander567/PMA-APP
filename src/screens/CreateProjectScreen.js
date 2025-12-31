@@ -20,6 +20,7 @@ export default function CreateProjectScreen({ navigation, route }) {
   );
   const [type, setType] = useState(editingProject?.type || "single");
   const [members, setMembers] = useState(editingProject?.members || []);
+  const [status, setStatus] = useState(editingProject?.status || "ongoing");
 
   const friends = ["Alex", "Jamie", "Chris"];
 
@@ -31,6 +32,7 @@ export default function CreateProjectScreen({ navigation, route }) {
       type,
       leader: user.email,
       members: type === "single" ? [user.email] : [user.email, ...members],
+      status, 
     };
 
     if (editingProject) {
@@ -192,6 +194,85 @@ export default function CreateProjectScreen({ navigation, route }) {
                 <Text>{friend}</Text>
               </TouchableOpacity>
             ))}
+          </View>
+        )}
+
+        {editingProject && (
+          <View style={{ marginBottom: 12 }}>
+            <View style={{ flexDirection: "row" }}>
+              {status === "ongoing" ? (
+                <LinearGradient
+                  colors={["#B8860B", "#FFD700"]} 
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{
+                    flex: 1,
+                    borderRadius: 6,
+                    marginRight: 8,
+                  }}>
+                  <TouchableOpacity
+                    onPress={() => setStatus("ongoing")}
+                    style={{
+                      flex: 1,
+                      padding: 10,
+                      justifyContent: "center",
+                      alignItems: "center",
+                      borderRadius: 6,
+                    }}>
+                    <Text
+                      style={{
+                        color: "#fff",
+                        textAlign: "center",
+                        fontWeight: "600",
+                      }}>
+                      Ongoing
+                    </Text>
+                  </TouchableOpacity>
+                </LinearGradient>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => setStatus("ongoing")}
+                  style={{
+                    flex: 1,
+                    padding: 10,
+                    borderRadius: 6,
+                    backgroundColor: "#111827",
+                    marginRight: 8,
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}>
+                  <Text
+                    style={{
+                      color: "#fff",
+                      textAlign: "center",
+                      fontWeight: "600",
+                    }}>
+                    Ongoing
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                onPress={() => setStatus("completed")}
+                style={{
+                  flex: 1,
+                  padding: 10,
+                  borderRadius: 6,
+                  backgroundColor:
+                    status === "completed" ? "#22C55E" : "#111827",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}>
+                <Text
+                  style={{
+                    color: "#fff",
+                    textAlign: "center",
+                    fontWeight: "600",
+                  }}>
+                  Completed
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
