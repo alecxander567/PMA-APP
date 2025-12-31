@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,8 +10,22 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useAuth } from "../context/AuthContext";
 
 export default function ProjectDetailsModal({ visible, project, onClose }) {
+  const { user } = useAuth();
+  const [selectedMember, setSelectedMember] = useState("");
+
+  useEffect(() => {
+    if (project && project.members?.length > 0) {
+      setSelectedMember(project.members[0]);
+    }
+  }, [project]);
+
+  if (!project) {
+    return null; 
+  }
+
   return (
     <Modal
       animationType="slide"
@@ -39,6 +53,7 @@ export default function ProjectDetailsModal({ visible, project, onClose }) {
                 <MaterialCommunityIcons name="close" size={24} color="#fff" />
               </TouchableOpacity>
             </View>
+
             <ScrollView style={styles.modalContent}>
               {project && (
                 <>
@@ -87,21 +102,23 @@ export default function ProjectDetailsModal({ visible, project, onClose }) {
                     <Text style={styles.modalValue}>{project.leader}</Text>
                   </View>
 
-                  <View style={styles.modalSection}>
-                    <Text style={styles.modalLabel}>
-                      Members ({project.members.length})
-                    </Text>
-                    {project.members.map((member, index) => (
-                      <View key={index} style={styles.memberRow}>
-                        <MaterialCommunityIcons
-                          name="account"
-                          size={20}
-                          color="#93C5FD"
-                        />
-                        <Text style={styles.memberText}>{member}</Text>
-                      </View>
-                    ))}
-                  </View>
+                  {project.type === "group" && (
+                    <View style={styles.modalSection}>
+                      <Text style={styles.modalLabel}>
+                        Members ({project.members.length})
+                      </Text>
+                      {project.members.map((member, index) => (
+                        <View key={index} style={styles.memberRow}>
+                          <MaterialCommunityIcons
+                            name="account"
+                            size={20}
+                            color="#93C5FD"
+                          />
+                          <Text style={styles.memberText}>{member}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
 
                   <View style={styles.modalSection}>
                     <Text style={styles.modalLabel}>Created</Text>

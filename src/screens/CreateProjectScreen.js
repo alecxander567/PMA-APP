@@ -1,13 +1,39 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+} from "react-native";
 import { useAuth } from "../context/AuthContext";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useProjects } from "../hooks/useProject";
+import { db } from "../services/firebase";
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  query,
+  where,
+  getDocs,
+  deleteDoc,
+  doc,
+} from "firebase/firestore";
 
 export default function CreateProjectScreen({ navigation, route }) {
   const { user } = useAuth();
-  const { createProject, updateProject } = useProjects();
+
+  const canDeleteTask = (memberEmail) => {
+    if (type === "single") {
+      return memberEmail === user?.email;
+    } else {
+      return editingProject?.leaderId === user?.uid;
+    }
+  };
+
+  const { createProject, updateProject } = useProjects(user?.email);
 
   const editingProject = route?.params?.project;
 
@@ -19,12 +45,125 @@ export default function CreateProjectScreen({ navigation, route }) {
     editingProject?.projectLink || ""
   );
   const [type, setType] = useState(editingProject?.type || "single");
-  const [members, setMembers] = useState(editingProject?.members || []);
+  const [members, setMembers] = useState(
+    editingProject?.members?.filter((m) => m !== user.email) || []
+  );
   const [status, setStatus] = useState(editingProject?.status || "ongoing");
+
+  const [memberTasks, setMemberTasks] = useState({});
+  const [newTaskInputs, setNewTaskInputs] = useState({});
+  const [deletedTaskIds, setDeletedTaskIds] = useState([]);
 
   const friends = ["Alex", "Jamie", "Chris"];
 
+  useEffect(() => {
+    if (!editingProject) return;
+
+    const loadTasks = async () => {
+      try {
+        const q = query(
+          collection(db, "tasks"),
+          where("projectId", "==", editingProject.id)
+        );
+
+        const snapshot = await getDocs(q);
+
+        const tasksByMember = {};
+
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const member = data.assignedTo;
+
+          if (!tasksByMember[member]) {
+            tasksByMember[member] = [];
+          }
+
+          tasksByMember[member].push({
+            id: docSnap.id,
+            title: data.title,
+          });
+        });
+
+        setMemberTasks(tasksByMember);
+      } catch (err) {
+        console.error("Failed to load tasks:", err);
+      }
+    };
+
+    loadTasks();
+  }, [editingProject]);
+
+  useEffect(() => {
+    const allMembers =
+      type === "single" ? [user.email] : [user.email, ...members];
+
+    setMemberTasks((prev) => {
+      let changed = false;
+      const updated = { ...prev };
+
+      allMembers.forEach((m) => {
+        if (!updated[m]) {
+          updated[m] = [];
+          changed = true;
+        }
+      });
+
+      return changed ? updated : prev;
+    });
+
+    setNewTaskInputs((prev) => {
+      let changed = false;
+      const updated = { ...prev };
+
+      allMembers.forEach((m) => {
+        if (!updated[m]) {
+          updated[m] = "";
+          changed = true;
+        }
+      });
+
+      return changed ? updated : prev;
+    });
+  }, [type, members]);
+
+  const handleAddTask = (memberEmail) => {
+    const taskText = newTaskInputs[memberEmail]?.trim();
+    if (taskText) {
+      setMemberTasks((prev) => ({
+        ...prev,
+        [memberEmail]: [
+          ...(prev[memberEmail] || []),
+          { id: null, title: taskText },
+        ],
+      }));
+      setNewTaskInputs((prev) => ({
+        ...prev,
+        [memberEmail]: "",
+      }));
+    }
+  };
+
+  const handleRemoveTask = (memberEmail, taskIndex) => {
+    setMemberTasks((prev) => {
+      const task = prev[memberEmail][taskIndex];
+
+      if (task?.id) {
+        setDeletedTaskIds((ids) => [...ids, task.id]);
+      }
+
+      return {
+        ...prev,
+        [memberEmail]: prev[memberEmail].filter((_, idx) => idx !== taskIndex),
+      };
+    });
+  };
+
   const handleSubmit = async () => {
+    if (!title.trim()) {
+      alert("Please enter a project title");
+      return;
+    }
+
     const projectData = {
       title,
       description,
@@ -32,27 +171,78 @@ export default function CreateProjectScreen({ navigation, route }) {
       type,
       leader: user.email,
       members: type === "single" ? [user.email] : [user.email, ...members],
-      status, 
+      status,
     };
 
-    if (editingProject) {
-      const result = await updateProject(editingProject.id, projectData);
-      if (result.success) {
-        console.log("Project updated successfully");
+    let projectId;
+
+    try {
+      if (editingProject) {
+        const result = await updateProject(editingProject.id, projectData);
+
+        if (!result.success) {
+          alert("Failed to update project: " + result.error);
+          return;
+        }
+
+        projectId = editingProject.id;
+      } else {
+        const result = await createProject(projectData);
+
+        if (!result.success) {
+          alert("Failed to create project: " + result.error);
+          return;
+        }
+
+        projectId = result.id;
+      }
+
+      for (const taskId of deletedTaskIds) {
+        await deleteDoc(doc(db, "tasks", taskId));
+      }
+
+      const allMembers =
+        type === "single" ? [user.email] : [user.email, ...members];
+
+      for (const member of allMembers) {
+        const tasks = memberTasks[member] || [];
+
+        for (const task of tasks) {
+          if (task.id) continue;
+
+          const taskData = {
+            title: task.title,
+            assignedTo: member,
+            assignedBy: user.email,
+            projectId,
+            completed: false,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          };
+
+          await addDoc(collection(db, "tasks"), taskData);
+        }
+      }
+
+      alert(
+        editingProject
+          ? "Project updated successfully!"
+          : "Project created successfully!"
+      );
+
+      if (navigation.canGoBack()) {
         navigation.goBack();
       } else {
-        alert("Failed to update project: " + result.error);
+        navigation.navigate("HomeScreen");
       }
-    } else {
-      const result = await createProject(projectData);
-      if (result.success) {
-        console.log("Project created with ID:", result.id);
-        navigation.goBack();
-      } else {
-        alert("Failed to create project: " + result.error);
-      }
+    } catch (error) {
+      console.error("Error in handleSubmit:", error);
+      alert("Failed to save: " + error.message);
     }
   };
+
+  const allMembers =
+    type === "single" ? [user.email] : [user.email, ...members];
 
   return (
     <LinearGradient
@@ -60,7 +250,7 @@ export default function CreateProjectScreen({ navigation, route }) {
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.gradient}>
-      <View style={{ padding: 20, flex: 1 }}>
+      <ScrollView style={{ flex: 1, padding: 20 }}>
         <View
           style={{
             flexDirection: "row",
@@ -175,8 +365,10 @@ export default function CreateProjectScreen({ navigation, route }) {
         </View>
 
         {type === "group" && (
-          <View>
-            <Text style={{ marginBottom: 8, color: "#fff" }}>Add Members</Text>
+          <View style={{ marginBottom: 20 }}>
+            <Text style={{ marginBottom: 8, color: "#fff", fontWeight: "600" }}>
+              Add Members
+            </Text>
             {friends.map((friend) => (
               <TouchableOpacity
                 key={friend}
@@ -191,18 +383,24 @@ export default function CreateProjectScreen({ navigation, route }) {
                       : [...prev, friend]
                   )
                 }>
-                <Text>{friend}</Text>
+                <Text
+                  style={{ color: members.includes(friend) ? "#000" : "#fff" }}>
+                  {friend}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
         )}
 
         {editingProject && (
-          <View style={{ marginBottom: 12 }}>
+          <View style={{ marginBottom: 20 }}>
+            <Text style={{ marginBottom: 8, color: "#fff", fontWeight: "600" }}>
+              Project Status
+            </Text>
             <View style={{ flexDirection: "row" }}>
               {status === "ongoing" ? (
                 <LinearGradient
-                  colors={["#B8860B", "#FFD700"]} 
+                  colors={["#B8860B", "#FFD700"]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={{
@@ -276,6 +474,145 @@ export default function CreateProjectScreen({ navigation, route }) {
           </View>
         )}
 
+        <View style={{ marginBottom: 20 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 12,
+            }}>
+            <MaterialCommunityIcons
+              name="checkbox-marked-outline"
+              size={20}
+              color="#93C5FD"
+            />
+            <Text
+              style={{
+                color: "#fff",
+                fontSize: 18,
+                fontWeight: "600",
+                marginLeft: 8,
+              }}>
+              Assign Tasks
+            </Text>
+          </View>
+
+          {allMembers.map((member) => (
+            <View
+              key={member}
+              style={{
+                backgroundColor: "rgba(255,255,255,0.05)",
+                padding: 16,
+                borderRadius: 12,
+                marginBottom: 16,
+              }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginBottom: 12,
+                }}>
+                <MaterialCommunityIcons
+                  name="account-circle"
+                  size={18}
+                  color="#FBBF24"
+                />
+                <Text
+                  style={{
+                    color: "#FBBF24",
+                    fontSize: 14,
+                    fontWeight: "600",
+                    marginLeft: 6,
+                  }}>
+                  {member === user.email
+                    ? type === "single"
+                      ? "Your Tasks"
+                      : `${member} (You)`
+                    : member}
+                </Text>
+              </View>
+
+              <View
+                style={{
+                  flexDirection: "row",
+                  marginBottom: 12,
+                  alignItems: "center",
+                }}>
+                <TextInput
+                  placeholder="Enter task..."
+                  placeholderTextColor="rgba(255,255,255,0.5)"
+                  value={newTaskInputs[member] || ""}
+                  onChangeText={(text) =>
+                    setNewTaskInputs((prev) => ({
+                      ...prev,
+                      [member]: text,
+                    }))
+                  }
+                  style={{
+                    flex: 1,
+                    backgroundColor: "rgba(255,255,255,0.1)",
+                    color: "#fff",
+                    padding: 10,
+                    borderRadius: 8,
+                    marginRight: 8,
+                  }}
+                  onSubmitEditing={() => handleAddTask(member)}
+                />
+                <TouchableOpacity
+                  onPress={() => handleAddTask(member)}
+                  style={{
+                    backgroundColor: "#3B82F6",
+                    padding: 10,
+                    borderRadius: 8,
+                  }}>
+                  <MaterialCommunityIcons name="plus" size={20} color="#fff" />
+                </TouchableOpacity>
+              </View>
+
+              {memberTasks[member]?.length > 0 ? (
+                <View>
+                  {memberTasks[member].map((task, index) => (
+                    <View
+                      key={index}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        backgroundColor: "rgba(255,255,255,0.1)",
+                        padding: 10,
+                        borderRadius: 8,
+                        marginBottom: 6,
+                      }}>
+                      <Text style={{ color: "#fff", flex: 1 }}>
+                        {task.title}
+                      </Text>
+                      {canDeleteTask(member) && (
+                        <TouchableOpacity
+                          onPress={() => handleRemoveTask(member, index)}>
+                          <MaterialCommunityIcons
+                            name="close"
+                            size={20}
+                            color="#EF4444"
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text
+                  style={{
+                    color: "rgba(255,255,255,0.4)",
+                    fontSize: 12,
+                    fontStyle: "italic",
+                  }}>
+                  No tasks added yet
+                </Text>
+              )}
+            </View>
+          ))}
+        </View>
+
         <LinearGradient
           colors={["#1E3A8A", "#3B82F6"]}
           start={{ x: 0, y: 0 }}
@@ -290,7 +627,9 @@ export default function CreateProjectScreen({ navigation, route }) {
             </Text>
           </TouchableOpacity>
         </LinearGradient>
-      </View>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
     </LinearGradient>
   );
 }
@@ -318,15 +657,17 @@ const styles = {
     borderColor: "#E5E7EB",
     borderRadius: 6,
     marginBottom: 6,
+    backgroundColor: "rgba(255,255,255,0.05)",
   },
   memberActive: {
     backgroundColor: "#E5E7EB",
   },
   createButton: {
-    marginTop: 20,
+    marginTop: 15,
     padding: 14,
     borderRadius: 8,
     overflow: "hidden",
     height: 50,
+    marginBottom: 20,
   },
 };

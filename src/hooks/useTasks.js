@@ -12,19 +12,19 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 
-export const useTasks = (userEmail) => {
+export const useTasks = (projectId, userEmail) => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!userEmail) {
+    if (!projectId) {
       setLoading(false);
       return;
     }
 
     const q = query(
       collection(db, "tasks"),
-      where("assignedTo", "==", userEmail)
+      where("projectId", "==", projectId)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -37,13 +37,13 @@ export const useTasks = (userEmail) => {
     });
 
     return () => unsubscribe();
-  }, [userEmail]);
+  }, [projectId]);
 
   const addTask = async (taskData) => {
     try {
       const docRef = await addDoc(collection(db, "tasks"), {
         ...taskData,
-        assignedTo: userEmail,
+        projectId: projectId,
         completed: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

@@ -10,16 +10,22 @@ import {
   SafeAreaView,
   FlatList,
   ActivityIndicator,
-  TextInput,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  onSnapshot,
+  updateDoc,
+} from "firebase/firestore";
 import { db } from "../services/firebase";
 import { useAuth } from "../context/AuthContext";
 import FooterMenu from "../components/FooterMenu";
 import { useProjects } from "../hooks/useProject";
-import { useTasks } from "../hooks/useTasks";
 import ProjectDetailsModal, {
   ConfirmModal,
 } from "../components/ProjectDetailsModal";
@@ -28,39 +34,6 @@ const { width } = Dimensions.get("window");
 
 export default function HomeScreen({ navigation }) {
   const { user, logout } = useAuth();
-
-  const {
-    tasks = [],
-    toggleTaskCompletion,
-    deleteTask,
-    addTask,
-    editTask,
-  } = useTasks(user?.email);
-
-  const [newTask, setNewTask] = useState("");
-
-  const handleAddTask = async () => {
-    if (editingTaskId) {
-      if (!editingText.trim()) return;
-      const result = await editTask(editingTaskId, { title: editingText });
-      if (result.success) {
-        setEditingTaskId(null);
-        setEditingText("");
-      } else {
-        alert("Failed to save task: " + result.error);
-      }
-    } else {
-      if (!newTask.trim()) return;
-      const result = await addTask({ title: newTask, completed: false });
-      if (result.success) setNewTask("");
-      else alert("Failed to add task: " + result.error);
-    }
-  };
-
-  const totalTasks = tasks?.length || 0;
-  const completedTasks = tasks?.filter((task) => task.completed)?.length || 0;
-  const progress = totalTasks === 0 ? 0 : completedTasks / totalTasks;
-
   const { projects, loading, deleteProject } = useProjects(user?.email);
 
   const [profile, setProfile] = useState(null);
@@ -68,32 +41,98 @@ export default function HomeScreen({ navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState(null);
-  const [editingTaskId, setEditingTaskId] = useState(null);
-  const [editingText, setEditingText] = useState("");
+  const [expandedProjects, setExpandedProjects] = useState({});
+  const [allTasks, setAllTasks] = useState({});
+  const [tasksLoading, setTasksLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user?.email || projects.length === 0) {
+      setTasksLoading(false);
+      return;
+    }
+
+    const unsubscribes = [];
+
+    projects.forEach((project) => {
+      const q = query(
+        collection(db, "tasks"),
+        where("projectId", "==", project.id),
+        where("assignedTo", "==", user.email)
+      );
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const projectTasks = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        setAllTasks((prev) => ({
+          ...prev,
+          [project.id]: projectTasks,
+        }));
+      });
+
+      unsubscribes.push(unsubscribe);
+    });
+
+    setTasksLoading(false);
+
+    return () => {
+      unsubscribes.forEach((unsub) => unsub());
+    };
+  }, [user?.email, projects]);
+
+  const toggleTaskCompletion = async (taskId, projectId, completed) => {
+    try {
+      const taskRef = doc(db, "tasks", taskId);
+      await updateDoc(taskRef, { completed });
+
+      setAllTasks((prev) => ({
+        ...prev,
+        [projectId]: prev[projectId].map((task) =>
+          task.id === taskId ? { ...task, completed } : task
+        ),
+      }));
+    } catch (error) {
+      console.error("Error updating task:", error);
+      Alert.alert("Error", "Failed to update task");
+    }
+  };
+
+  const toggleProjectExpanded = (projectId) => {
+    setExpandedProjects((prev) => ({
+      ...prev,
+      [projectId]: !prev[projectId],
+    }));
+  };
+
+  const getProjectProgress = (projectId) => {
+    const tasks = allTasks[projectId] || [];
+    const total = tasks.length;
+    const completed = tasks.filter((task) => task.completed).length;
+    const progress = total === 0 ? 0 : completed / total;
+    return { total, completed, progress };
+  };
+
+  const totalTasks = Object.values(allTasks).reduce(
+    (sum, tasks) => sum + tasks.length,
+    0
+  );
 
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        console.log("Loading profile for UID:", user?.uid);
-
         if (!user?.uid) {
-          setLoading(false);
           return;
         }
 
         const snap = await getDoc(doc(db, "users", user.uid));
-        console.log("Profile exists in Firestore:", snap.exists());
 
         if (snap.exists()) {
-          console.log("Profile data:", snap.data());
           setProfile(snap.data());
-        } else {
-          console.log("No profile in Firestore, using auth data");
         }
       } catch (error) {
         console.error("Error loading profile:", error);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -141,7 +180,7 @@ export default function HomeScreen({ navigation }) {
     {
       id: "tasks",
       iconName: "check-circle-outline",
-      number: tasks.length,
+      number: totalTasks,
       label: "Tasks",
     },
     {
@@ -428,156 +467,148 @@ export default function HomeScreen({ navigation }) {
                 />{" "}
                 Your Tasks
               </Text>
-              <TouchableOpacity onPress={handleAddTask}>
-                <Text style={styles.addButton}>
-                  {editingTaskId ? "Save" : "+ Add"}
-                </Text>
-              </TouchableOpacity>
             </View>
 
-            <TextInput
-              value={editingTaskId ? editingText : newTask}
-              onChangeText={editingTaskId ? setEditingText : setNewTask}
-              placeholder={editingTaskId ? "Edit task..." : "Enter new task..."}
-              placeholderTextColor="rgba(255,255,255,0.5)"
-              style={{
-                backgroundColor: "rgba(255,255,255,0.05)",
-                color: "#fff",
-                padding: 10,
-                borderRadius: 8,
-                marginBottom: 10,
-              }}
-            />
-
-            <View style={styles.progressBarBackground}>
-              <View style={[styles.progressBarFill, { flex: progress }]} />
-              <View style={{ flex: 1 - progress }} />
-            </View>
-            <Text style={styles.progressText}>
-              {completedTasks} of {totalTasks} tasks completed
-            </Text>
-
-            {tasks.length === 0 ? (
+            {tasksLoading ? (
+              <ActivityIndicator size="small" color="#7C1EFF" />
+            ) : projects.length === 0 ? (
               <View style={styles.emptyState}>
                 <MaterialCommunityIcons
                   name="text-box-check-outline"
                   size={48}
                   color="rgba(255,255,255,0.3)"
                 />
-                <Text style={styles.emptyText}>No tasks assigned</Text>
+                <Text style={styles.emptyText}>No tasks yet</Text>
                 <Text style={styles.emptySubtext}>
-                  Tasks will appear here when assigned
+                  Create a project and get assigned tasks
                 </Text>
               </View>
             ) : (
               <ScrollView
-                style={{ maxHeight: 300, marginTop: 10 }}
+                style={{ maxHeight: 400, marginTop: 10 }}
                 nestedScrollEnabled
                 showsVerticalScrollIndicator>
-                {tasks.map((task) => {
-                  const isEditing = editingTaskId === task.id;
+                {projects.map((project) => {
+                  const projectProgress = getProjectProgress(project.id);
+                  const projectTasks = allTasks[project.id] || [];
+                  const isExpanded = expandedProjects[project.id];
+
+                  if (projectTasks.length === 0) return null;
 
                   return (
-                    <View
-                      key={task.id}
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        backgroundColor: "rgba(255,255,255,0.05)",
-                        padding: 10,
-                        borderRadius: 8,
-                        marginBottom: 8,
-                      }}>
+                    <View key={project.id} style={styles.projectTaskContainer}>
                       <TouchableOpacity
-                        onPress={() =>
-                          toggleTaskCompletion(task.id, !task.completed)
-                        }
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          flex: 1,
-                        }}>
-                        <View
-                          style={{
-                            width: 20,
-                            height: 20,
-                            borderRadius: 4,
-                            borderWidth: 2,
-                            borderColor: "#fff",
-                            marginRight: 10,
-                            justifyContent: "center",
-                            alignItems: "center",
-                            backgroundColor: task.completed
-                              ? "#F43F5E"
-                              : "transparent",
-                          }}>
-                          {task.completed && (
-                            <MaterialCommunityIcons
-                              name="check"
-                              size={14}
-                              color="#fff"
-                            />
-                          )}
-                        </View>
-
-                        {isEditing ? (
-                          <TextInput
-                            value={editingText}
-                            onChangeText={setEditingText}
-                            onSubmitEditing={async () => {
-                              await editTask(task.id, { title: editingText });
-                              setEditingTaskId(null);
-                            }}
-                            onBlur={() => setEditingTaskId(null)}
+                        onPress={() => toggleProjectExpanded(project.id)}
+                        style={styles.projectTaskHeader}>
+                        <View style={{ flex: 1, marginRight: 12 }}>
+                          <View
                             style={{
-                              flex: 1,
-                              color: "#fff",
-                              borderBottomWidth: 1,
-                              borderBottomColor: "#7C1EFF",
-                            }}
-                            autoFocus
-                          />
-                        ) : (
-                          <Text
-                            style={{
-                              color: "#fff",
-                              textDecorationLine: task.completed
-                                ? "line-through"
-                                : "none",
-                              flexShrink: 1,
+                              flexDirection: "row",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              marginBottom: 8,
                             }}>
-                            {task.title}
+                            <Text style={styles.projectTaskTitle}>
+                              {project.title}
+                            </Text>
+                            <MaterialCommunityIcons
+                              name={isExpanded ? "chevron-up" : "chevron-down"}
+                              size={24}
+                              color="#93C5FD"
+                            />
+                          </View>
+
+                          <View style={styles.progressBarBackground}>
+                            <View
+                              style={[
+                                styles.progressBarFill,
+                                { width: `${projectProgress.progress * 100}%` },
+                              ]}
+                            />
+                          </View>
+
+                          <Text style={styles.progressText}>
+                            {projectProgress.completed} of{" "}
+                            {projectProgress.total} tasks completed
                           </Text>
-                        )}
+                        </View>
                       </TouchableOpacity>
 
-                      <View style={{ flexDirection: "row", marginLeft: 10 }}>
-                        {!isEditing && (
-                          <TouchableOpacity
-                            onPress={() => {
-                              setEditingTaskId(task.id);
-                              setEditingText(task.title);
-                            }}
-                            style={{ marginRight: 10 }}>
-                            <MaterialCommunityIcons
-                              name="pencil-outline"
-                              size={20}
-                              color="#FBBF24"
-                            />
-                          </TouchableOpacity>
-                        )}
-                        <TouchableOpacity onPress={() => deleteTask(task.id)}>
-                          <MaterialCommunityIcons
-                            name="trash-can-outline"
-                            size={20}
-                            color="#EF4444"
-                          />
-                        </TouchableOpacity>
-                      </View>
+                      {isExpanded && (
+                        <View style={styles.tasksList}>
+                          {projectTasks.map((task) => (
+                            <View key={task.id} style={styles.taskItem}>
+                              <TouchableOpacity
+                                onPress={() =>
+                                  toggleTaskCompletion(
+                                    task.id,
+                                    project.id,
+                                    !task.completed
+                                  )
+                                }
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  flex: 1,
+                                }}>
+                                <View
+                                  style={{
+                                    width: 20,
+                                    height: 20,
+                                    borderRadius: 4,
+                                    borderWidth: 2,
+                                    borderColor: "#fff",
+                                    marginRight: 12,
+                                    justifyContent: "center",
+                                    alignItems: "center",
+                                    backgroundColor: task.completed
+                                      ? "#F43F5E"
+                                      : "transparent",
+                                  }}>
+                                  {task.completed && (
+                                    <MaterialCommunityIcons
+                                      name="check"
+                                      size={14}
+                                      color="#fff"
+                                    />
+                                  )}
+                                </View>
+
+                                <Text
+                                  style={{
+                                    color: "#fff",
+                                    fontSize: 14,
+                                    textDecorationLine: task.completed
+                                      ? "line-through"
+                                      : "none",
+                                    flex: 1,
+                                  }}>
+                                  {task.title}
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                          ))}
+                        </View>
+                      )}
                     </View>
                   );
                 })}
+
+                {Object.values(allTasks).every(
+                  (tasks) => tasks.length === 0
+                ) && (
+                  <View style={styles.emptyState}>
+                    <MaterialCommunityIcons
+                      name="text-box-check-outline"
+                      size={48}
+                      color="rgba(255,255,255,0.3)"
+                    />
+                    <Text style={styles.emptyText}>No tasks assigned</Text>
+                    <Text style={styles.emptySubtext}>
+                      Tasks will appear here when assigned by project leaders
+                    </Text>
+                  </View>
+                )}
               </ScrollView>
             )}
           </View>
@@ -831,7 +862,6 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 8,
   },
-
   actionButtonHorizontal: {
     flexDirection: "row",
     alignItems: "center",
@@ -840,7 +870,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: "rgba(255,255,255,0.05)",
   },
-
   actionTextHorizontal: {
     color: "#FFF",
     fontSize: 12,
@@ -853,12 +882,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
     alignSelf: "flex-start",
   },
-  ongoingBadge: {
-    backgroundColor: "#2563EB",
-  },
-  completedBadge: {
-    backgroundColor: "#16A34A",
-  },
   statusText: {
     color: "#F9FAFB",
     fontSize: 10,
@@ -866,26 +889,50 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   progressBarBackground: {
-    flexDirection: "row",
-    height: 10,
-    borderRadius: 6,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: "rgba(255,255,255,0.1)",
     overflow: "hidden",
     marginBottom: 6,
   },
   progressBarFill: {
+    height: "100%",
     backgroundColor: "#F43F5E",
   },
   progressText: {
     fontSize: 12,
     color: "#E5E7EB",
-    marginBottom: 12,
     fontWeight: "500",
   },
-  taskItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+  projectTaskContainer: {
     backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  projectTaskHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  projectTaskTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#93C5FD",
+  },
+  tasksList: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.1)",
+  },
+  taskItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(255,255,255,0.03)",
+    padding: 12,
     borderRadius: 8,
     marginBottom: 8,
   },
