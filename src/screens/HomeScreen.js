@@ -21,14 +21,13 @@ import {
   where,
   onSnapshot,
   updateDoc,
+  Pressable,
 } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { useAuth } from "../context/AuthContext";
 import FooterMenu from "../components/FooterMenu";
 import FloatingBubble from "../components/FloatingBubble";
-
 import { useProjects } from "../hooks/useProject";
-import * as Animatable from "react-native-animatable";
 import ProjectDetailsModal, {
   ConfirmModal,
 } from "../components/ProjectDetailsModal";
@@ -274,40 +273,44 @@ export default function HomeScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.welcomeContainer}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                marginBottom: 6,
-              }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 6,
+            }}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate("Profile")}>
               <View style={styles.profileCircle}>
                 <Text
                   style={{ color: "#fff", fontWeight: "700", fontSize: 18 }}>
-                  {profile?.username?.charAt(0)?.toUpperCase() || "U"}
+                  {profile?.avatar ||
+                    profile?.username?.charAt(0)?.toUpperCase() ||
+                    "U"}
                 </Text>
               </View>
+            </TouchableOpacity>
 
-              <View style={{ marginLeft: 8, flex: 1 }}>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                  }}>
-                  <Text style={styles.welcomeText}>
-                    Welcome back,{" "}
-                    {profile?.username || user?.email?.split("@")[0] || "User"}!
-                  </Text>
-                  <MaterialCommunityIcons
-                    name="hand-wave-outline"
-                    size={20}
-                    color="#93C5FD"
-                    style={{ marginLeft: 6 }}
-                  />
-                </View>
-                <Text style={styles.emailText}>{user?.email}</Text>
+            <View style={{ marginLeft: 8, flex: 1 }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}>
+                <Text style={styles.welcomeText}>
+                  Welcome back,{" "}
+                  {profile?.username || user?.email?.split("@")[0] || "User"}!
+                </Text>
+                <MaterialCommunityIcons
+                  name="hand-wave-outline"
+                  size={20}
+                  color="#93C5FD"
+                  style={{ marginLeft: 6 }}
+                />
               </View>
+              <Text style={styles.emailText}>{user?.email}</Text>
             </View>
           </View>
 
@@ -738,7 +741,7 @@ const styles = StyleSheet.create({
     width: 45,
     height: 45,
     borderRadius: 23,
-    backgroundColor: "#6B5DD6",
+    backgroundColor: "#F43F5E",
     borderWidth: 2,
     borderColor: "#FFFFFF",
     marginRight: 12,

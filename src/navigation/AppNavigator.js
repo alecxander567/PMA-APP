@@ -6,6 +6,7 @@ import LoginScreen from "../screens/LoginScreen";
 import RegisterScreen from "../screens/RegisterScreen";
 import HomeScreen from "../screens/HomeScreen";
 import CreateProjectScreen from "../screens/CreateProjectScreen";
+import ProfileScreen from "../screens/ProfileScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -29,6 +30,11 @@ export default function AppNavigator() {
               name="CreateProject"
               component={CreateProjectScreen}
               options={{ title: "Create Project", headerShown: false }}
+            />
+            <Stack.Screen
+              name="Profile"
+              component={ProfileScreen}
+              options={{ title: "Profile", headerShown: false }}
             />
           </>
         ) : (
