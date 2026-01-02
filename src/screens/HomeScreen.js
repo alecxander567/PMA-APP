@@ -23,6 +23,7 @@ import {
   updateDoc,
   Pressable,
 } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 import { db } from "../services/firebase";
 import { useAuth } from "../context/AuthContext";
 import FooterMenu from "../components/FooterMenu";
@@ -31,12 +32,22 @@ import { useProjects } from "../hooks/useProject";
 import ProjectDetailsModal, {
   ConfirmModal,
 } from "../components/ProjectDetailsModal";
+import useAllUsers from "../hooks/useAllUsers";
 
 const { width } = Dimensions.get("window");
 
 export default function HomeScreen({ navigation }) {
   const { user, logout } = useAuth();
   const { projects, loading, deleteProject } = useProjects(user?.email);
+
+  const { users } = useAllUsers();
+  const auth = getAuth();
+  const currentUser = auth.currentUser;
+  const currentUserProfile = users.find((u) => u.uid === currentUser.uid);
+
+  const acceptedFriends = users.filter((u) =>
+    currentUserProfile?.friends?.includes(u.uid)
+  );
 
   const [profile, setProfile] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -188,7 +199,7 @@ export default function HomeScreen({ navigation }) {
     {
       id: "friends",
       iconName: "account-group-outline",
-      number: 5,
+      number: acceptedFriends.length, 
       label: "Friends",
     },
   ];
@@ -272,7 +283,6 @@ export default function HomeScreen({ navigation }) {
               </Text>
             </TouchableOpacity>
           </View>
-
           <View
             style={{
               flexDirection: "row",
@@ -313,7 +323,6 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.emailText}>{user?.email}</Text>
             </View>
           </View>
-
           <LinearGradient
             colors={["#0A0F2C", "#2A0A3D", "#7F1D1D"]}
             start={{ x: 0, y: 0 }}
@@ -340,7 +349,6 @@ export default function HomeScreen({ navigation }) {
               Manage your projects easily and efficiently
             </Text>
           </LinearGradient>
-
           <FlatList
             data={statsData}
             renderItem={renderStatCard}
@@ -352,7 +360,6 @@ export default function HomeScreen({ navigation }) {
             decelerationRate="fast"
             snapToAlignment="start"
           />
-
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>
@@ -388,99 +395,128 @@ export default function HomeScreen({ navigation }) {
                 style={{ maxHeight: 300 }}
                 showsVerticalScrollIndicator={false}
                 nestedScrollEnabled={true}>
-                {projects.map((project) => (
-                  <View key={project.id} style={styles.projectCard}>
-                    <TouchableOpacity
-                      style={styles.projectContent}
-                      onPress={() => openProjectModal(project)}>
-                      <View style={styles.projectHeader}>
-                        <Text style={styles.projectTitle}>{project.title}</Text>
-                        <View
-                          style={[
-                            styles.projectTypeBadge,
-                            project.type === "group" && styles.groupBadge,
-                          ]}>
-                          <Text style={styles.projectTypeText}>
-                            {project.type === "single" ? "Solo" : "Group"}
+                {projects.map((project) => {
+                  const isProjectLeader =
+                    project.leaderId === user?.uid ||
+                    (project.type === "single" &&
+                      project.members.length === 1 &&
+                      project.members[0] === user.email);
+
+                  return (
+                    <View key={project.id} style={styles.projectCard}>
+                      <TouchableOpacity
+                        style={styles.projectContent}
+                        onPress={() => openProjectModal(project)}>
+                        <View style={styles.projectHeader}>
+                          <Text style={styles.projectTitle}>
+                            {project.title}
                           </Text>
+                          <View
+                            style={[
+                              styles.projectTypeBadge,
+                              project.type === "group" && styles.groupBadge,
+                            ]}>
+                            <Text style={styles.projectTypeText}>
+                              {project.type === "single" ? "Solo" : "Group"}
+                            </Text>
+                          </View>
+                        </View>
+                        {project.description && (
+                          <Text
+                            style={styles.projectDescription}
+                            numberOfLines={2}>
+                            {project.description}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+
+                      {project.status === "ongoing" ? (
+                        <LinearGradient
+                          colors={["#FFD700", "#FFA500"]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.statusBadge}>
+                          <Text style={styles.statusText}>Ongoing</Text>
+                        </LinearGradient>
+                      ) : (
+                        <LinearGradient
+                          colors={["#22C55E", "#16A34A"]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.statusBadge}>
+                          <Text style={styles.statusText}>Completed</Text>
+                        </LinearGradient>
+                      )}
+
+                      <View style={styles.projectFooter}>
+                        <Text style={styles.projectMembers}>
+                          <MaterialCommunityIcons
+                            name="account-group"
+                            size={14}
+                            color="#9CA3AF"
+                          />{" "}
+                          {project.members.length} member
+                          {project.members.length > 1 ? "s" : ""}
+                        </Text>
+
+                        <View style={styles.cardActions}>
+                          {isProjectLeader && (
+                            <>
+                              <TouchableOpacity
+                                onPress={() => handleEditProject(project)}
+                                style={styles.actionButtonHorizontal}>
+                                <MaterialCommunityIcons
+                                  name="pencil-outline"
+                                  size={16}
+                                  color="#FBBF24"
+                                />
+                                <Text style={styles.actionTextHorizontal}>
+                                  Edit
+                                </Text>
+                              </TouchableOpacity>
+
+                              <TouchableOpacity
+                                onPress={() => handleDeletePress(project.id)}
+                                style={styles.actionButtonHorizontal}>
+                                <MaterialCommunityIcons
+                                  name="trash-can-outline"
+                                  size={16}
+                                  color="#EF4444"
+                                />
+                                <Text style={styles.actionTextHorizontal}>
+                                  Delete
+                                </Text>
+                              </TouchableOpacity>
+                            </>
+                          )}
+
+                          {!isProjectLeader && (
+                            <TouchableOpacity
+                              onPress={() => openProjectModal(project)}
+                              style={styles.actionButtonHorizontal}>
+                              <MaterialCommunityIcons
+                                name="eye-outline"
+                                size={16}
+                                color="#3B82F6"
+                              />
+                              <Text style={styles.actionTextHorizontal}>
+                                View
+                              </Text>
+                            </TouchableOpacity>
+                          )}
                         </View>
                       </View>
-                      {project.description && (
-                        <Text
-                          style={styles.projectDescription}
-                          numberOfLines={2}>
-                          {project.description}
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-
-                    {project.status === "ongoing" ? (
-                      <LinearGradient
-                        colors={["#FFD700", "#FFA500"]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.statusBadge}>
-                        <Text style={styles.statusText}>Ongoing</Text>
-                      </LinearGradient>
-                    ) : (
-                      <LinearGradient
-                        colors={["#22C55E", "#16A34A"]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.statusBadge}>
-                        <Text style={styles.statusText}>Completed</Text>
-                      </LinearGradient>
-                    )}
-
-                    <View style={styles.projectFooter}>
-                      <Text style={styles.projectMembers}>
-                        <MaterialCommunityIcons
-                          name="account-group"
-                          size={14}
-                          color="#9CA3AF"
-                        />{" "}
-                        {project.members.length} member
-                        {project.members.length > 1 ? "s" : ""}
-                      </Text>
-
-                      <View style={styles.cardActions}>
-                        <TouchableOpacity
-                          onPress={() => handleEditProject(project)}
-                          style={styles.actionButtonHorizontal}>
-                          <MaterialCommunityIcons
-                            name="pencil-outline"
-                            size={16}
-                            color="#FBBF24"
-                          />
-                          <Text style={styles.actionTextHorizontal}>Edit</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          onPress={() => handleDeletePress(project.id)}
-                          style={styles.actionButtonHorizontal}>
-                          <MaterialCommunityIcons
-                            name="trash-can-outline"
-                            size={16}
-                            color="#EF4444"
-                          />
-                          <Text style={styles.actionTextHorizontal}>
-                            Delete
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
                     </View>
-                  </View>
-                ))}
+                  );
+                })}
               </ScrollView>
             )}
           </View>
-
           <ProjectDetailsModal
             visible={modalVisible}
             project={selectedProject}
             onClose={closeProjectModal}
           />
-
           <ConfirmModal
             visible={deleteModalVisible}
             title="Delete Project"
@@ -488,7 +524,6 @@ export default function HomeScreen({ navigation }) {
             onCancel={() => setDeleteModalVisible(false)}
             onConfirm={handleConfirmDelete}
           />
-
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>
@@ -661,7 +696,6 @@ export default function HomeScreen({ navigation }) {
               </ScrollView>
             )}
           </View>
-
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>
@@ -672,21 +706,55 @@ export default function HomeScreen({ navigation }) {
                 />{" "}
                 Friends
               </Text>
-              <TouchableOpacity>
-                <Text style={styles.addButton}>+ Add</Text>
+              <TouchableOpacity onPress={() => navigation.navigate("Friends")}>
+                <Text style={styles.addButton}>View All</Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.emptyState}>
-              <MaterialCommunityIcons
-                name="account-multiple-outline"
-                size={48}
-                color="rgba(255,255,255,0.3)"
+
+            {acceptedFriends.length > 0 ? (
+              <FlatList
+                data={acceptedFriends.slice(0, 5)}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => {
+                  const displayName =
+                    item.name || item.username || "Unnamed User";
+                  const initials = displayName
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2);
+
+                  return (
+                    <TouchableOpacity style={styles.friendCard}>
+                      <View style={styles.friendInfo}>
+                        <View style={styles.friendAvatar}>
+                          <Text style={styles.friendAvatarText}>
+                            {item.avatar || item.emoji || initials}
+                          </Text>
+                        </View>
+                        <View style={styles.friendDetails}>
+                          <Text style={styles.friendName}>{displayName}</Text>
+                          <Text style={styles.friendEmail}>{item.email}</Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+                scrollEnabled={false}
               />
-              <Text style={styles.emptyText}>No friends yet</Text>
-              <Text style={styles.emptySubtext}>
-                Connect with teammates to collaborate
-              </Text>
-            </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons
+                  name="account-multiple-outline"
+                  size={48}
+                  color="rgba(255,255,255,0.3)"
+                />
+                <Text style={styles.emptyText}>No friends yet</Text>
+                <Text style={styles.emptySubtext}>
+                  Connect with teammates to collaborate
+                </Text>
+              </View>
+            )}
           </View>
         </ScrollView>
 
@@ -701,7 +769,7 @@ export default function HomeScreen({ navigation }) {
           onPressDashboard={() => {}}
           onPressProjects={() => {}}
           onPressTasks={() => {}}
-          onPressFriends={() => {}}
+          onPressFriends={() => navigation.navigate("Friends")}
         />
       </LinearGradient>
     </SafeAreaView>
@@ -758,7 +826,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     marginBottom: 20,
   },
-
   statCardOuter: {
     marginRight: 12,
     width: width > 768 ? 180 : width * 0.55,
@@ -771,7 +838,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 6,
   },
-
   statCardContent: {
     flex: 1,
     alignItems: "center",
@@ -786,7 +852,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     textAlign: "center",
   },
-
   statLabel: {
     fontSize: 11,
     color: "#C7C9D9",
@@ -804,7 +869,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     flexWrap: "wrap",
   },
-
   emailText: {
     color: "#9CA3AF",
     fontSize: 12,
@@ -1004,7 +1068,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 20,
   },
-
   heroTitle: {
     color: "#FFFFFF",
     fontSize: 20,
@@ -1012,11 +1075,51 @@ const styles = StyleSheet.create({
     textAlign: "left",
     marginBottom: 6,
   },
-
   heroSubtitle: {
     color: "#9CA3AF",
     fontSize: 14,
     fontWeight: "400",
     textAlign: "left",
+  },
+
+  // ✨ NEW FRIENDS STYLES
+  friendCard: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  friendInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  friendAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#F43F5E",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  friendAvatarText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  friendDetails: {
+    flex: 1,
+  },
+  friendName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    marginBottom: 2,
+  },
+  friendEmail: {
+    fontSize: 12,
+    color: "#9CA3AF",
   },
 });

@@ -7,6 +7,7 @@ import RegisterScreen from "../screens/RegisterScreen";
 import HomeScreen from "../screens/HomeScreen";
 import CreateProjectScreen from "../screens/CreateProjectScreen";
 import ProfileScreen from "../screens/ProfileScreen";
+import FriendsScreen from "../screens/FriendsScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -35,6 +36,11 @@ export default function AppNavigator() {
               name="Profile"
               component={ProfileScreen}
               options={{ title: "Profile", headerShown: false }}
+            />
+            <Stack.Screen
+              name="Friends"
+              component={FriendsScreen}
+              options={{ title: "Friends", headerShown: false }}
             />
           </>
         ) : (

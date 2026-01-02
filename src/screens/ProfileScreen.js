@@ -29,8 +29,7 @@ import {
   doc,
   getDoc,
 } from "firebase/firestore";
-import { db, storage } from "../services/firebase";
-import { SvgUri } from "react-native-svg";
+import { db } from "../services/firebase";
 
 const { width, height } = Dimensions.get("window");
 
