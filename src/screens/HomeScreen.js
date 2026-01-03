@@ -853,7 +853,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: width > 768 ? "15%" : 20,
     paddingTop: 30,
-    paddingBottom: 120,
+    paddingBottom: 64,
   },
   loadingContainer: {
     flex: 1,
