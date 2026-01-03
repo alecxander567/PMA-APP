@@ -8,6 +8,8 @@ import HomeScreen from "../screens/HomeScreen";
 import CreateProjectScreen from "../screens/CreateProjectScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import FriendsScreen from "../screens/FriendsScreen";
+import RequestsScreen from "../screens/RequestsScreen";
+import SettingsScreen from "../screens/SettingsScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -41,6 +43,16 @@ export default function AppNavigator() {
               name="Friends"
               component={FriendsScreen}
               options={{ title: "Friends", headerShown: false }}
+            />
+            <Stack.Screen
+              name="Requests"
+              component={RequestsScreen}
+              options={{ title: "Requests", headerShown: false }}
+            />
+            <Stack.Screen
+              name="Settings"
+              component={SettingsScreen}
+              options={{ title: "Settings", headerShown: false }}
             />
           </>
         ) : (

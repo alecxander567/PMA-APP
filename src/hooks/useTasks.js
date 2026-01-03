@@ -10,6 +10,7 @@ import {
   where,
   onSnapshot,
   serverTimestamp,
+  Alert,
 } from "firebase/firestore";
 
 export const useTasks = (projectId, userEmail) => {
@@ -91,6 +92,25 @@ export const useTasks = (projectId, userEmail) => {
     }
   };
 
+  const requestDeleteTask = async (task, project, userEmail) => {
+    try {
+      await addDoc(collection(db, "taskDeleteRequests"), {
+        taskId: task.id,
+        taskTitle: task.title,
+        projectId: project.id,
+        requestedBy: userEmail,
+        leaderEmail: project.leader,
+        status: "pending",
+        createdAt: serverTimestamp(),
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error requesting task deletion:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
   return {
     tasks,
     loading,
@@ -98,5 +118,6 @@ export const useTasks = (projectId, userEmail) => {
     editTask,
     toggleTaskCompletion,
     deleteTask,
+    requestDeleteTask,
   };
 };

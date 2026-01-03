@@ -22,6 +22,7 @@ import {
   onSnapshot,
   updateDoc,
   Pressable,
+  deleteDoc,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { db } from "../services/firebase";
@@ -33,6 +34,7 @@ import ProjectDetailsModal, {
   ConfirmModal,
 } from "../components/ProjectDetailsModal";
 import useAllUsers from "../hooks/useAllUsers";
+import { useTasks } from "../hooks/useTasks";
 
 const { width } = Dimensions.get("window");
 
@@ -40,7 +42,10 @@ export default function HomeScreen({ navigation }) {
   const { user, logout } = useAuth();
   const { projects, loading, deleteProject } = useProjects(user?.email);
 
+  const { requestDeleteTask } = useTasks(null, user?.email);
+
   const { users } = useAllUsers();
+
   const auth = getAuth();
   const currentUser = auth.currentUser;
   const currentUserProfile = users.find((u) => u.uid === currentUser.uid);
@@ -57,6 +62,20 @@ export default function HomeScreen({ navigation }) {
   const [expandedProjects, setExpandedProjects] = useState({});
   const [allTasks, setAllTasks] = useState({});
   const [tasksLoading, setTasksLoading] = useState(true);
+
+  const isMember = (project) => project.leaderId !== user?.uid;
+
+  const handleRequestDeleteTask = async (task, project) => {
+    if (!project) return;
+
+    const result = await requestDeleteTask(task, project, user.email);
+
+    if (result.success) {
+      alert(`Requested deletion for task "${task.title}"`);
+    } else {
+      alert("Failed to request deletion: " + result.error);
+    }
+  };
 
   useEffect(() => {
     if (!user?.email || projects.length === 0) {
@@ -199,7 +218,7 @@ export default function HomeScreen({ navigation }) {
     {
       id: "friends",
       iconName: "account-group-outline",
-      number: acceptedFriends.length, 
+      number: acceptedFriends.length,
       label: "Friends",
     },
   ];
@@ -396,11 +415,7 @@ export default function HomeScreen({ navigation }) {
                 showsVerticalScrollIndicator={false}
                 nestedScrollEnabled={true}>
                 {projects.map((project) => {
-                  const isProjectLeader =
-                    project.leaderId === user?.uid ||
-                    (project.type === "single" &&
-                      project.members.length === 1 &&
-                      project.members[0] === user.email);
+                  const isProjectLeader = project.leader === user.email;
 
                   return (
                     <View key={project.id} style={styles.projectCard}>
@@ -516,7 +531,9 @@ export default function HomeScreen({ navigation }) {
             visible={modalVisible}
             project={selectedProject}
             onClose={closeProjectModal}
+            users={users}
           />
+
           <ConfirmModal
             visible={deleteModalVisible}
             title="Delete Project"
@@ -556,6 +573,8 @@ export default function HomeScreen({ navigation }) {
                 nestedScrollEnabled
                 showsVerticalScrollIndicator>
                 {projects.map((project) => {
+                  const isProjectLeader = project.leader === user.email;
+
                   const projectProgress = getProjectProgress(project.id);
                   const projectTasks = allTasks[project.id] || [];
                   const isExpanded = expandedProjects[project.id];
@@ -670,6 +689,50 @@ export default function HomeScreen({ navigation }) {
                                   {task.title}
                                 </Text>
                               </TouchableOpacity>
+
+                              <TouchableOpacity
+                                onPress={async () => {
+                                  try {
+                                    if (isProjectLeader) {
+                                      const taskRef = doc(db, "tasks", task.id);
+                                      await deleteDoc(taskRef);
+                                      Alert.alert(
+                                        "Deleted",
+                                        "Task deleted successfully!"
+                                      );
+                                    } else {
+                                      const res = await requestDeleteTask(
+                                        task,
+                                        project,
+                                        user.email
+                                      );
+                                      if (res.success) {
+                                        Alert.alert(
+                                          "Request Sent",
+                                          "The project leader will review your request."
+                                        );
+                                      } else {
+                                        Alert.alert("Error", res.error);
+                                      }
+                                    }
+                                  } catch (err) {
+                                    console.error(
+                                      "Error with task deletion:",
+                                      err
+                                    );
+                                    Alert.alert(
+                                      "Error",
+                                      "Failed to process request."
+                                    );
+                                  }
+                                }}
+                                style={{ paddingLeft: 10 }}>
+                                <MaterialCommunityIcons
+                                  name="trash-can-outline"
+                                  size={18}
+                                  color="#F87171"
+                                />
+                              </TouchableOpacity>
                             </View>
                           ))}
                         </View>
@@ -767,8 +830,8 @@ export default function HomeScreen({ navigation }) {
         <FooterMenu
           activeIndex={0}
           onPressDashboard={() => {}}
-          onPressProjects={() => {}}
-          onPressTasks={() => {}}
+          onPressRequests={() => navigation.navigate("Requests")}
+          onPressSettings={() => navigation.navigate("Settings")}
           onPressFriends={() => navigation.navigate("Friends")}
         />
       </LinearGradient>
@@ -1081,8 +1144,6 @@ const styles = StyleSheet.create({
     fontWeight: "400",
     textAlign: "left",
   },
-
-  // ✨ NEW FRIENDS STYLES
   friendCard: {
     backgroundColor: "rgba(255,255,255,0.05)",
     borderRadius: 12,

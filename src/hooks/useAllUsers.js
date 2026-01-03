@@ -22,10 +22,9 @@ export default function useAllUsers() {
     if (!currentUser) return;
 
     const unsubscribe = onSnapshot(collection(db, "users"), (snapshot) => {
-      const usersList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const usersList = snapshot.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .filter((u) => u.uid && u.email);
 
       setUsers(usersList);
       setLoading(false);
@@ -100,11 +99,16 @@ export default function useAllUsers() {
     }
   };
 
+  const removeUserFromState = (userId) => {
+    setUsers((prev) => prev.filter((u) => u.uid !== userId));
+  };
+
   return {
     users,
     loading,
     sendFriendRequest,
     acceptFriendRequest,
     refreshUsers,
+    removeUserFromState,
   };
 }

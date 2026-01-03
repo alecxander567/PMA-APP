@@ -29,21 +29,18 @@ export default function CreateProjectScreen({ navigation, route }) {
   const { user } = useAuth();
   const { createProject, updateProject } = useProjects(user?.email);
 
-  // Get friends data
   const { users, loading: usersLoading } = useAllUsers();
   const auth = getAuth();
   const currentUser = auth.currentUser;
   const currentUserProfile = users.find((u) => u.uid === currentUser?.uid);
 
-  // Get accepted friends with their details
   const acceptedFriends = users.filter((u) =>
     currentUserProfile?.friends?.includes(u.uid)
   );
 
   const editingProject = route?.params?.project;
 
-  // Check if current user is the project leader
-  const isLeader = !editingProject || editingProject?.leaderId === user?.uid;
+  const isLeader = !editingProject || editingProject?.leader === user?.email;
 
   const [title, setTitle] = useState(editingProject?.title || "");
   const [description, setDescription] = useState(
@@ -71,14 +68,30 @@ export default function CreateProjectScreen({ navigation, route }) {
   };
 
   const canAddTask = (memberEmail) => {
-    // In single projects, only you can add tasks
-    // In group projects, only the leader can add tasks
     if (type === "single") {
       return memberEmail === user?.email;
     } else {
       return isLeader;
     }
   };
+
+  useEffect(() => {
+    if (!editingProject || !users || users.length === 0) return;
+
+    const validMembers = editingProject.members.filter(
+      (memberEmail) =>
+        memberEmail === user.email || 
+        users.some((u) => u.email === memberEmail) 
+    );
+
+    const filteredMembers = validMembers.filter((m) => m !== user.email);
+
+    if (
+      JSON.stringify(filteredMembers.sort()) !== JSON.stringify(members.sort())
+    ) {
+      setMembers(filteredMembers);
+    }
+  }, [editingProject, users, user.email]);
 
   useEffect(() => {
     if (!editingProject) return;
@@ -117,14 +130,19 @@ export default function CreateProjectScreen({ navigation, route }) {
   }, [editingProject]);
 
   useEffect(() => {
-    const allMembers =
-      type === "single" ? [user.email] : [user.email, ...members];
+    const allMembersFiltered =
+      type === "single"
+        ? [user.email]
+        : [
+            user.email,
+            ...members.filter((m) => users?.some((u) => u.email === m)),
+          ];
 
     setMemberTasks((prev) => {
       let changed = false;
       const updated = { ...prev };
 
-      allMembers.forEach((m) => {
+      allMembersFiltered.forEach((m) => {
         if (!updated[m]) {
           updated[m] = [];
           changed = true;
@@ -138,7 +156,7 @@ export default function CreateProjectScreen({ navigation, route }) {
       let changed = false;
       const updated = { ...prev };
 
-      allMembers.forEach((m) => {
+      allMembersFiltered.forEach((m) => {
         if (!updated[m]) {
           updated[m] = "";
           changed = true;
@@ -147,7 +165,7 @@ export default function CreateProjectScreen({ navigation, route }) {
 
       return changed ? updated : prev;
     });
-  }, [type, members]);
+  }, [type, members, users]);
 
   const handleAddTask = (memberEmail) => {
     if (!canAddTask(memberEmail)) return;
@@ -201,7 +219,13 @@ export default function CreateProjectScreen({ navigation, route }) {
       type,
       leader: user.email,
       leaderId: user.uid,
-      members: type === "single" ? [user.email] : [user.email, ...members],
+      members:
+        type === "single"
+          ? [user.email]
+          : [
+              user.email,
+              ...members.filter((m) => users?.some((u) => u.email === m)),
+            ],
       status,
     };
 
@@ -233,7 +257,12 @@ export default function CreateProjectScreen({ navigation, route }) {
       }
 
       const allMembers =
-        type === "single" ? [user.email] : [user.email, ...members];
+        type === "single"
+          ? [user.email]
+          : [
+              user.email,
+              ...members.filter((m) => users?.some((u) => u.email === m)), 
+            ];
 
       for (const member of allMembers) {
         const tasks = memberTasks[member] || [];
@@ -273,16 +302,27 @@ export default function CreateProjectScreen({ navigation, route }) {
   };
 
   const allMembers =
-    type === "single" ? [user.email] : [user.email, ...members];
+    type === "single"
+      ? [user.email]
+      : [
+          user.email,
+          ...members.filter((m) => users?.some((u) => u.email === m)),
+        ];
 
-  // Helper to get friend display name
   const getFriendDisplayName = (friendEmail) => {
     const friend = acceptedFriends.find((f) => f.email === friendEmail);
     return friend?.username || friend?.name || friendEmail;
   };
 
-  // Show read-only view for non-leaders
   if (editingProject && !isLeader) {
+    const allMembersFiltered =
+      type === "single"
+        ? [user.email]
+        : [
+            user.email,
+            ...members.filter((m) => users?.some((u) => u.email === m)),
+          ];
+
     return (
       <LinearGradient
         colors={["#0A0F2C", "#1B103F", "#4A0E2E"]}
@@ -378,11 +418,13 @@ export default function CreateProjectScreen({ navigation, route }) {
 
           <View style={styles.readOnlyField}>
             <Text style={styles.fieldLabel}>Members</Text>
-            {editingProject.members.map((member, index) => (
-              <Text key={index} style={styles.fieldValue}>
-                • {getFriendDisplayName(member)}
-              </Text>
-            ))}
+            {editingProject.members
+              .filter((member) => users?.some((u) => u.email === member)) 
+              .map((member, index) => (
+                <Text key={index} style={styles.fieldValue}>
+                  • {getFriendDisplayName(member)}
+                </Text>
+              ))}
           </View>
 
           <TouchableOpacity

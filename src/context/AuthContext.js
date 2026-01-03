@@ -4,9 +4,13 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword as firebaseUpdatePassword,
 } from "firebase/auth";
 import { auth } from "../services/firebase";
 import { createUserProfile } from "../services/UserService";
+import { deleteAccountWithPassword } from "../services/UserService";
 
 const AuthContext = createContext();
 
@@ -16,12 +20,19 @@ export function AuthProvider({ children }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    let unsubscribe;
+    try {
+      unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        setUser(currentUser);
+        setLoading(false);
+      });
+    } catch (err) {
+      console.error("Firebase Auth failed:", err);
       setLoading(false);
-    });
+      setUser(null); // fallback
+    }
 
-    return unsubscribe;
+    return () => unsubscribe && unsubscribe();
   }, []);
 
   const register = async (email, password, username) => {
@@ -75,9 +86,47 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updatePassword = async (currentPassword, newPassword) => {
+    if (!user) throw new Error("No user logged in");
+    try {
+      const credential = EmailAuthProvider.credential(
+        user.email,
+        currentPassword
+      );
+      await reauthenticateWithCredential(user, credential);
+      await firebaseUpdatePassword(user, newPassword);
+    } catch (err) {
+      console.error("Password Update Error:", err);
+      throw err;
+    }
+  };
+
+  const deleteAccount = async (password) => {
+    try {
+      setLoading(true);
+      await deleteAccountWithPassword(password);
+      setUser(null);
+      await logout();
+    } catch (err) {
+      console.error("Delete Account Error:", err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider
-      value={{ user, register, login, logout, loading, error }}>
+      value={{
+        user,
+        register,
+        login,
+        logout,
+        updatePassword,
+        deleteAccount,
+        loading,
+        error,
+      }}>
       {children}
     </AuthContext.Provider>
   );
@@ -85,8 +134,6 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  if (!context) throw new Error("useAuth must be used within an AuthProvider");
   return context;
 }

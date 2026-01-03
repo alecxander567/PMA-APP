@@ -213,8 +213,8 @@ export default function FriendsScreen({ navigation }) {
         <FooterMenu
           activeIndex={3}
           onPressDashboard={() => navigation.navigate("Home")}
-          onPressProjects={() => {}}
-          onPressTasks={() => {}}
+          onPressRequests={() => navigation.navigate("Requests")}
+          onPressSettings={() => navigation.navigate("Settings")}
           onPressFriends={() => {}}
         />
       </SafeAreaView>

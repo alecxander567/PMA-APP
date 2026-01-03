@@ -12,7 +12,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 
-export default function ProjectDetailsModal({ visible, project, onClose }) {
+export default function ProjectDetailsModal({
+  visible,
+  project,
+  onClose,
+  users,
+}) {
   const { user } = useAuth();
   const [selectedMember, setSelectedMember] = useState("");
 
@@ -23,7 +28,7 @@ export default function ProjectDetailsModal({ visible, project, onClose }) {
   }, [project]);
 
   if (!project) {
-    return null; 
+    return null;
   }
 
   return (
@@ -104,19 +109,39 @@ export default function ProjectDetailsModal({ visible, project, onClose }) {
 
                   {project.type === "group" && (
                     <View style={styles.modalSection}>
-                      <Text style={styles.modalLabel}>
-                        Members ({project.members.length})
-                      </Text>
-                      {project.members.map((member, index) => (
-                        <View key={index} style={styles.memberRow}>
-                          <MaterialCommunityIcons
-                            name="account"
-                            size={20}
-                            color="#93C5FD"
-                          />
-                          <Text style={styles.memberText}>{member}</Text>
-                        </View>
-                      ))}
+                      {(() => {
+                        const existingMembers = project.members.filter(
+                          (member) => users?.some((u) => u.email === member)
+                        );
+
+                        return (
+                          <>
+                            <Text style={styles.modalLabel}>
+                              Members ({existingMembers.length})
+                            </Text>
+                            {existingMembers.map((member) => {
+                              const friend = users.find(
+                                (u) => u.email === member
+                              );
+                              const displayName =
+                                friend.username || friend.name;
+
+                              return (
+                                <View key={member} style={styles.memberRow}>
+                                  <MaterialCommunityIcons
+                                    name="account"
+                                    size={20}
+                                    color="#93C5FD"
+                                  />
+                                  <Text style={styles.memberText}>
+                                    {displayName}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                          </>
+                        );
+                      })()}
                     </View>
                   )}
 
