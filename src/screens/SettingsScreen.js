@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: width * 0.07,
     fontWeight: "700",
-    marginBottom: height * 0.04,
+    marginBottom: height * 0.08,
   },
   optionCard: {
     backgroundColor: "#2A1A4B",

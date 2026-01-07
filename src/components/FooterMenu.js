@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
+  Platform,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
@@ -87,7 +88,7 @@ export default function FooterMenu({
 
 const styles = StyleSheet.create({
   footer: {
-    position: "absolute",
+    position: Platform.OS === "web" ? "fixed" : "absolute",
     bottom: 0,
     left: 0,
     right: 0,
@@ -95,15 +96,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     alignItems: "center",
     paddingVertical: 12,
-    paddingBottom: 40,
     backgroundColor: "#0A0F2C",
     borderTopWidth: 1,
     borderTopColor: "rgba(124,30,255,0.25)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 6,
+    zIndex: 1000,
   },
   footerButton: {
     alignItems: "center",

@@ -21,7 +21,6 @@ import {
   where,
   onSnapshot,
   updateDoc,
-  Pressable,
   deleteDoc,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
@@ -36,14 +35,13 @@ import ProjectDetailsModal, {
 import useAllUsers from "../hooks/useAllUsers";
 import { useTasks } from "../hooks/useTasks";
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
+const isTablet = width > 768;
 
 export default function HomeScreen({ navigation }) {
   const { user, logout } = useAuth();
   const { projects, loading, deleteProject } = useProjects(user?.email);
-
   const { requestDeleteTask } = useTasks(null, user?.email);
-
   const { users } = useAllUsers();
 
   const auth = getAuth();
@@ -62,20 +60,6 @@ export default function HomeScreen({ navigation }) {
   const [expandedProjects, setExpandedProjects] = useState({});
   const [allTasks, setAllTasks] = useState({});
   const [tasksLoading, setTasksLoading] = useState(true);
-
-  const isMember = (project) => project.leaderId !== user?.uid;
-
-  const handleRequestDeleteTask = async (task, project) => {
-    if (!project) return;
-
-    const result = await requestDeleteTask(task, project, user.email);
-
-    if (result.success) {
-      alert(`Requested deletion for task "${task.title}"`);
-    } else {
-      alert("Failed to request deletion: " + result.error);
-    }
-  };
 
   useEffect(() => {
     if (!user?.email || projects.length === 0) {
@@ -237,7 +221,7 @@ export default function HomeScreen({ navigation }) {
       <View style={[styles.statCardContent, { backgroundColor: "#0A0F2C" }]}>
         <MaterialCommunityIcons
           name={item.iconName}
-          size={32}
+          size={isTablet ? 36 : 32}
           color="#FFFFFF"
           style={{ marginBottom: 8 }}
         />
@@ -269,7 +253,7 @@ export default function HomeScreen({ navigation }) {
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <MaterialCommunityIcons
                 name="view-dashboard"
-                size={24}
+                size={isTablet ? 28 : 24}
                 color="#FFFFFF"
                 style={{ marginRight: 8 }}
               />
@@ -288,32 +272,20 @@ export default function HomeScreen({ navigation }) {
               }}>
               <MaterialCommunityIcons
                 name="logout"
-                size={16}
+                size={isTablet ? 18 : 16}
                 color="#F43F5E"
                 style={{ marginRight: 6 }}
               />
-              <Text
-                style={{
-                  color: "#F43F5E",
-                  fontWeight: "600",
-                  fontSize: 13,
-                }}>
-                Log Out
-              </Text>
+              <Text style={styles.logoutText}>Log Out</Text>
             </TouchableOpacity>
           </View>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 6,
-            }}>
+
+          <View style={styles.profileSection}>
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => navigation.navigate("Profile")}>
               <View style={styles.profileCircle}>
-                <Text
-                  style={{ color: "#fff", fontWeight: "700", fontSize: 18 }}>
+                <Text style={styles.profileText}>
                   {profile?.avatar ||
                     profile?.username?.charAt(0)?.toUpperCase() ||
                     "U"}
@@ -322,19 +294,14 @@ export default function HomeScreen({ navigation }) {
             </TouchableOpacity>
 
             <View style={{ marginLeft: 8, flex: 1 }}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                }}>
+              <View style={styles.welcomeRow}>
                 <Text style={styles.welcomeText}>
                   Welcome back,{" "}
                   {profile?.username || user?.email?.split("@")[0] || "User"}!
                 </Text>
                 <MaterialCommunityIcons
                   name="hand-wave-outline"
-                  size={20}
+                  size={isTablet ? 24 : 20}
                   color="#93C5FD"
                   style={{ marginLeft: 6 }}
                 />
@@ -342,23 +309,24 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.emailText}>{user?.email}</Text>
             </View>
           </View>
+
           <LinearGradient
             colors={["#0A0F2C", "#2A0A3D", "#7F1D1D"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.heroSection}>
             <FloatingBubble
-              size={40}
+              size={isTablet ? 50 : 40}
               color="#93C5FD"
               style={{ position: "absolute", top: 20, right: 30 }}
             />
             <FloatingBubble
-              size={30}
+              size={isTablet ? 40 : 30}
               color="#F43F5E"
               style={{ position: "absolute", bottom: 30, left: 40 }}
             />
             <FloatingBubble
-              size={20}
+              size={isTablet ? 30 : 20}
               color="#22D3EE"
               style={{ position: "absolute", bottom: 10, right: 20 }}
             />
@@ -368,6 +336,7 @@ export default function HomeScreen({ navigation }) {
               Manage your projects easily and efficiently
             </Text>
           </LinearGradient>
+
           <FlatList
             data={statsData}
             renderItem={renderStatCard}
@@ -375,16 +344,17 @@ export default function HomeScreen({ navigation }) {
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.statsContainer}
-            snapToInterval={width > 768 ? 0 : width * 0.6 + 12}
+            snapToInterval={isTablet ? 0 : width * 0.6 + 12}
             decelerationRate="fast"
             snapToAlignment="start"
           />
+
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>
                 <MaterialCommunityIcons
                   name="clipboard-text-outline"
-                  size={18}
+                  size={isTablet ? 20 : 18}
                   color="#E5E7EB"
                 />{" "}
                 Projects
@@ -401,7 +371,7 @@ export default function HomeScreen({ navigation }) {
               <View style={styles.emptyState}>
                 <MaterialCommunityIcons
                   name="folder-open-outline"
-                  size={48}
+                  size={isTablet ? 56 : 48}
                   color="rgba(255,255,255,0.3)"
                 />
                 <Text style={styles.emptyText}>No projects yet</Text>
@@ -411,7 +381,7 @@ export default function HomeScreen({ navigation }) {
               </View>
             ) : (
               <ScrollView
-                style={{ maxHeight: 300 }}
+                style={{ maxHeight: isTablet ? 400 : 300 }}
                 showsVerticalScrollIndicator={false}
                 nestedScrollEnabled={true}>
                 {projects.map((project) => {
@@ -527,6 +497,7 @@ export default function HomeScreen({ navigation }) {
               </ScrollView>
             )}
           </View>
+
           <ProjectDetailsModal
             visible={modalVisible}
             project={selectedProject}
@@ -541,12 +512,13 @@ export default function HomeScreen({ navigation }) {
             onCancel={() => setDeleteModalVisible(false)}
             onConfirm={handleConfirmDelete}
           />
+
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>
                 <MaterialCommunityIcons
                   name="check-circle-outline"
-                  size={18}
+                  size={isTablet ? 20 : 18}
                   color="#E5E7EB"
                 />{" "}
                 Your Tasks
@@ -559,7 +531,7 @@ export default function HomeScreen({ navigation }) {
               <View style={styles.emptyState}>
                 <MaterialCommunityIcons
                   name="text-box-check-outline"
-                  size={48}
+                  size={isTablet ? 56 : 48}
                   color="rgba(255,255,255,0.3)"
                 />
                 <Text style={styles.emptyText}>No tasks yet</Text>
@@ -569,12 +541,11 @@ export default function HomeScreen({ navigation }) {
               </View>
             ) : (
               <ScrollView
-                style={{ maxHeight: 400, marginTop: 10 }}
+                style={{ maxHeight: isTablet ? 500 : 400, marginTop: 10 }}
                 nestedScrollEnabled
                 showsVerticalScrollIndicator>
                 {projects.map((project) => {
                   const isProjectLeader = project.leader === user.email;
-
                   const projectProgress = getProjectProgress(project.id);
                   const projectTasks = allTasks[project.id] || [];
                   const isExpanded = expandedProjects[project.id];
@@ -587,13 +558,7 @@ export default function HomeScreen({ navigation }) {
                         onPress={() => toggleProjectExpanded(project.id)}
                         style={styles.projectTaskHeader}>
                         <View style={{ flex: 1, marginRight: 12 }}>
-                          <View
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              marginBottom: 8,
-                            }}>
+                          <View style={styles.taskHeaderRow}>
                             <Text style={styles.projectTaskTitle}>
                               {project.title}
                             </Text>
@@ -617,12 +582,7 @@ export default function HomeScreen({ navigation }) {
                             />
                           </View>
 
-                          <View
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              marginTop: 4,
-                            }}>
+                          <View style={styles.progressInfoRow}>
                             <MaterialCommunityIcons
                               name="progress-check"
                               size={16}
@@ -649,25 +609,9 @@ export default function HomeScreen({ navigation }) {
                                     !task.completed
                                   )
                                 }
-                                style={{
-                                  flexDirection: "row",
-                                  alignItems: "center",
-                                  flex: 1,
-                                }}>
+                                style={styles.taskItemContent}>
                                 <View
-                                  style={{
-                                    width: 20,
-                                    height: 20,
-                                    borderRadius: 4,
-                                    borderWidth: 2,
-                                    borderColor: "#fff",
-                                    marginRight: 12,
-                                    justifyContent: "center",
-                                    alignItems: "center",
-                                    backgroundColor: task.completed
-                                      ? "#F43F5E"
-                                      : "transparent",
-                                  }}>
+                                  style={styles.taskCheckbox(task.completed)}>
                                   {task.completed && (
                                     <MaterialCommunityIcons
                                       name="check"
@@ -677,15 +621,7 @@ export default function HomeScreen({ navigation }) {
                                   )}
                                 </View>
 
-                                <Text
-                                  style={{
-                                    color: "#fff",
-                                    fontSize: 14,
-                                    textDecorationLine: task.completed
-                                      ? "line-through"
-                                      : "none",
-                                    flex: 1,
-                                  }}>
+                                <Text style={styles.taskTitle(task.completed)}>
                                   {task.title}
                                 </Text>
                               </TouchableOpacity>
@@ -747,7 +683,7 @@ export default function HomeScreen({ navigation }) {
                   <View style={styles.emptyState}>
                     <MaterialCommunityIcons
                       name="text-box-check-outline"
-                      size={48}
+                      size={isTablet ? 56 : 48}
                       color="rgba(255,255,255,0.3)"
                     />
                     <Text style={styles.emptyText}>No tasks assigned</Text>
@@ -759,12 +695,13 @@ export default function HomeScreen({ navigation }) {
               </ScrollView>
             )}
           </View>
+
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>
                 <MaterialCommunityIcons
                   name="account-group-outline"
-                  size={18}
+                  size={isTablet ? 20 : 18}
                   color="#E5E7EB"
                 />{" "}
                 Friends
@@ -809,7 +746,7 @@ export default function HomeScreen({ navigation }) {
               <View style={styles.emptyState}>
                 <MaterialCommunityIcons
                   name="account-multiple-outline"
-                  size={48}
+                  size={isTablet ? 56 : 48}
                   color="rgba(255,255,255,0.3)"
                 />
                 <Text style={styles.emptyText}>No friends yet</Text>
@@ -820,12 +757,6 @@ export default function HomeScreen({ navigation }) {
             )}
           </View>
         </ScrollView>
-
-        <LinearGradient
-          colors={["transparent", "#0A0F2C"]}
-          style={styles.fadeGradient}
-          pointerEvents="none"
-        />
 
         <FooterMenu
           activeIndex={0}
@@ -851,9 +782,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: width > 768 ? "15%" : 20,
-    paddingTop: 30,
-    paddingBottom: 64,
+    paddingHorizontal: isTablet ? "20%" : 20,
+    paddingTop: isTablet ? 40 : 30,
+    paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
@@ -866,12 +797,27 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
-    paddingTop: 10,
+    paddingTop: 5,
+  },
+  title: {
+    color: "#FFFFFF",
+    fontSize: isTablet ? 26 : 22,
+    fontWeight: "700",
+  },
+  logoutText: {
+    color: "#F43F5E",
+    fontWeight: "600",
+    fontSize: isTablet ? 15 : 13,
+  },
+  profileSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
   },
   profileCircle: {
-    width: 45,
-    height: 45,
-    borderRadius: 23,
+    width: isTablet ? 52 : 45,
+    height: isTablet ? 52 : 45,
+    borderRadius: isTablet ? 26 : 23,
     backgroundColor: "#F43F5E",
     borderWidth: 2,
     borderColor: "#FFFFFF",
@@ -880,10 +826,50 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  title: {
-    color: "#FFFFFF",
-    fontSize: 22,
+  profileText: {
+    color: "#fff",
     fontWeight: "700",
+    fontSize: isTablet ? 20 : 18,
+  },
+  welcomeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  welcomeText: {
+    color: "#FFFFFF",
+    fontSize: isTablet ? 15 : 13,
+    fontWeight: "600",
+    flexShrink: 1,
+    flexWrap: "wrap",
+  },
+  emailText: {
+    color: "#9CA3AF",
+    fontSize: isTablet ? 14 : 12,
+    fontWeight: "400",
+    marginTop: 2,
+  },
+  heroSection: {
+    width: "100%",
+    paddingVertical: isTablet ? 50 : 40,
+    paddingHorizontal: isTablet ? 30 : 20,
+    alignItems: "flex-start",
+    justifyContent: "center",
+    borderRadius: 16,
+    marginBottom: 20,
+  },
+  heroTitle: {
+    color: "#FFFFFF",
+    fontSize: isTablet ? 24 : 20,
+    fontWeight: "800",
+    textAlign: "left",
+    marginBottom: 6,
+  },
+  heroSubtitle: {
+    color: "#9CA3AF",
+    fontSize: isTablet ? 16 : 14,
+    fontWeight: "400",
+    textAlign: "left",
   },
   statsContainer: {
     paddingVertical: 4,
@@ -891,8 +877,8 @@ const styles = StyleSheet.create({
   },
   statCardOuter: {
     marginRight: 12,
-    width: width > 768 ? 180 : width * 0.55,
-    height: 100,
+    width: isTablet ? 200 : width * 0.55,
+    height: isTablet ? 120 : 100,
     overflow: "hidden",
     backgroundColor: "transparent",
     shadowColor: "#A020F0",
@@ -909,39 +895,22 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
   },
   statNumber: {
-    fontSize: 22,
+    fontSize: isTablet ? 26 : 22,
     fontWeight: "800",
     color: "#FFFFFF",
     marginBottom: 4,
     textAlign: "center",
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: isTablet ? 13 : 11,
     color: "#C7C9D9",
     fontWeight: "600",
     textAlign: "center",
   },
-  welcomeContainer: {
-    marginBottom: 20,
-    paddingHorizontal: 12,
-  },
-  welcomeText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "600",
-    flexShrink: 1,
-    flexWrap: "wrap",
-  },
-  emailText: {
-    color: "#9CA3AF",
-    fontSize: 12,
-    fontWeight: "400",
-    marginTop: 2,
-  },
   section: {
     backgroundColor: "rgba(255,255,255,0.06)",
     borderRadius: 16,
-    padding: 16,
+    padding: isTablet ? 20 : 16,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: "rgba(124,30,255,0.25)",
@@ -954,16 +923,19 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: "#E5E7EB",
-    fontSize: 18,
+    fontSize: isTablet ? 20 : 18,
     fontWeight: "600",
   },
   projectCard: {
     backgroundColor: "rgba(255,255,255,0.05)",
     borderRadius: 12,
-    padding: 16,
+    padding: isTablet ? 18 : 16,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
+  },
+  projectContent: {
+    flex: 1,
   },
   projectHeader: {
     flexDirection: "row",
@@ -972,7 +944,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   projectTitle: {
-    fontSize: 16,
+    fontSize: isTablet ? 18 : 16,
     fontWeight: "600",
     color: "#fff",
     flex: 1,
@@ -987,12 +959,12 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(168, 85, 247, 0.2)",
   },
   projectTypeText: {
-    fontSize: 12,
+    fontSize: isTablet ? 13 : 12,
     color: "#93C5FD",
     fontWeight: "500",
   },
   projectDescription: {
-    fontSize: 14,
+    fontSize: isTablet ? 15 : 14,
     color: "#9CA3AF",
     marginBottom: 12,
   },
@@ -1003,36 +975,29 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   projectMembers: {
-    fontSize: 12,
+    fontSize: isTablet ? 13 : 12,
     color: "#9CA3AF",
   },
   addButton: {
     color: "#F43F5E",
-    fontSize: 14,
+    fontSize: isTablet ? 15 : 14,
     fontWeight: "600",
   },
   emptyState: {
     alignItems: "center",
-    paddingVertical: 20,
+    paddingVertical: isTablet ? 30 : 20,
   },
   emptyText: {
     color: "#E5E7EB",
-    fontSize: 16,
+    fontSize: isTablet ? 18 : 16,
     fontWeight: "600",
     marginTop: 8,
   },
   emptySubtext: {
     color: "#9CA3AF",
-    fontSize: 14,
+    fontSize: isTablet ? 15 : 14,
     textAlign: "center",
     marginTop: 4,
-  },
-  fadeGradient: {
-    position: "absolute",
-    bottom: 92,
-    left: 0,
-    right: 0,
-    height: 60,
   },
   cardActions: {
     flexDirection: "row",
@@ -1051,7 +1016,7 @@ const styles = StyleSheet.create({
   },
   actionTextHorizontal: {
     color: "#FFF",
-    fontSize: 12,
+    fontSize: isTablet ? 13 : 12,
     marginLeft: 4,
   },
   statusBadge: {
@@ -1063,12 +1028,12 @@ const styles = StyleSheet.create({
   },
   statusText: {
     color: "#F9FAFB",
-    fontSize: 10,
+    fontSize: isTablet ? 11 : 10,
     fontWeight: "600",
     textAlign: "center",
   },
   progressBarBackground: {
-    height: 8,
+    height: isTablet ? 10 : 8,
     borderRadius: 4,
     backgroundColor: "rgba(255,255,255,0.1)",
     overflow: "hidden",
@@ -1079,14 +1044,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#F43F5E",
   },
   progressText: {
-    fontSize: 12,
+    fontSize: isTablet ? 13 : 12,
     color: "#E5E7EB",
     fontWeight: "500",
   },
   projectTaskContainer: {
     backgroundColor: "rgba(255,255,255,0.05)",
     borderRadius: 12,
-    padding: 14,
+    padding: isTablet ? 16 : 14,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
@@ -1096,9 +1061,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   projectTaskTitle: {
-    fontSize: 16,
+    fontSize: isTablet ? 18 : 16,
     fontWeight: "600",
     color: "#FFFFFF",
+  },
+  taskHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
   },
   tasksList: {
     marginTop: 12,
@@ -1111,43 +1082,48 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: "rgba(255,255,255,0.03)",
-    padding: 12,
+    padding: isTablet ? 14 : 12,
     borderRadius: 8,
     marginBottom: 8,
   },
+  taskItemContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  taskCheckbox: (completed) => ({
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: "#fff",
+    marginRight: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: completed ? "#F43F5E" : "transparent",
+  }),
+  taskTitle: (completed) => ({
+    color: "#fff",
+    fontSize: isTablet ? 15 : 14,
+    textDecorationLine: completed ? "line-through" : "none",
+    flex: 1,
+  }),
   progressPercentage: {
     color: "#F43F5E",
-    fontSize: 12,
+    fontSize: isTablet ? 13 : 12,
     fontWeight: "600",
     marginBottom: 4,
     textAlign: "right",
   },
-  heroSection: {
-    width: "100%",
-    paddingVertical: 40,
-    paddingHorizontal: 20,
-    alignItems: "flex-start",
-    justifyContent: "center",
-    borderRadius: 16,
-    marginBottom: 20,
-  },
-  heroTitle: {
-    color: "#FFFFFF",
-    fontSize: 20,
-    fontWeight: "800",
-    textAlign: "left",
-    marginBottom: 6,
-  },
-  heroSubtitle: {
-    color: "#9CA3AF",
-    fontSize: 14,
-    fontWeight: "400",
-    textAlign: "left",
+  progressInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
   },
   friendCard: {
     backgroundColor: "rgba(255,255,255,0.05)",
     borderRadius: 12,
-    padding: 12,
+    padding: isTablet ? 14 : 12,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
@@ -1157,9 +1133,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   friendAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: isTablet ? 48 : 44,
+    height: isTablet ? 48 : 44,
+    borderRadius: isTablet ? 24 : 22,
     backgroundColor: "#F43F5E",
     alignItems: "center",
     justifyContent: "center",
@@ -1168,19 +1144,19 @@ const styles = StyleSheet.create({
   friendAvatarText: {
     color: "#FFFFFF",
     fontWeight: "700",
-    fontSize: 16,
+    fontSize: isTablet ? 18 : 16,
   },
   friendDetails: {
     flex: 1,
   },
   friendName: {
-    fontSize: 15,
+    fontSize: isTablet ? 16 : 15,
     fontWeight: "600",
     color: "#FFFFFF",
     marginBottom: 2,
   },
   friendEmail: {
-    fontSize: 12,
+    fontSize: isTablet ? 13 : 12,
     color: "#9CA3AF",
   },
 });

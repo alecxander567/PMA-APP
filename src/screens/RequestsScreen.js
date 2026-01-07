@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#FFFFFF",
     textAlign: "left",
-    marginTop: height * 0.08,
+    marginTop: height * 0.04,
     marginBottom: 16,
     marginLeft: width * 0.07,
   },
