@@ -119,7 +119,7 @@ export default function FriendsScreen({ navigation }) {
 
         {isRequest && (
           <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: "#F43F5E" }]}
+            style={[styles.addButton, styles.acceptButton]}
             onPress={() => acceptFriendRequest(item.id)}
             activeOpacity={0.8}>
             <Text style={{ color: "#fff", fontWeight: "600" }}>Accept</Text>
@@ -180,20 +180,19 @@ export default function FriendsScreen({ navigation }) {
                 <Text style={styles.sectionTitle}>
                   Requests ({incomingRequests.length})
                 </Text>
-                <FlatList
-                  data={incomingRequests}
-                  keyExtractor={(item) => item.id}
-                  renderItem={({ item }) =>
-                    renderUser({ item, isRequest: true })
-                  }
-                  showsVerticalScrollIndicator={false}
-                />
+                <View style={styles.requestsContainer}>
+                  {incomingRequests.map((item) => (
+                    <View key={item.id}>
+                      {renderUser({ item, isRequest: true })}
+                    </View>
+                  ))}
+                </View>
               </>
             )}
 
             {acceptedFriends.length > 0 ? (
               <>
-                <Text style={[styles.sectionTitle, { marginTop: 24 }]}>
+                <Text style={[styles.sectionTitle, { marginTop: 80 }]}>
                   Friends ({acceptedFriends.length})
                 </Text>
                 <FlatList
@@ -289,7 +288,16 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginHorizontal: 16,
     marginTop: 16,
-    marginBottom: 4,
+    marginBottom: 8,
+  },
+
+  requestsList: {
+    maxHeight: 400,
+    marginBottom: 24,
+  },
+
+  requestsContainer: {
+    marginBottom: 24,
   },
 
   userCard: {
@@ -337,5 +345,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#F43F5E",
     padding: isTablet ? 12 : 10,
     borderRadius: 10,
+  },
+
+  acceptButton: {
+    backgroundColor: "#F43F5E",
+    paddingVertical: isTablet ? 16 : 14,
+    paddingHorizontal: isTablet ? 24 : 20,
   },
 });

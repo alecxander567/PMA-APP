@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   Dimensions,
+  SafeAreaView,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -19,6 +20,7 @@ import { getAuth } from "firebase/auth";
 import { useState } from "react";
 
 const { width, height } = Dimensions.get("window");
+const isTablet = width > 768;
 
 export default function SettingsScreen({ navigation }) {
   const { user, logout, deleteAccount } = useAuth();
@@ -51,129 +53,207 @@ export default function SettingsScreen({ navigation }) {
   };
 
   return (
-    <LinearGradient
-      colors={["#0A0F2C", "#1B103F", "#4A0E2E"]}
-      style={styles.gradient}>
-      <View style={styles.container}>
-        <Text style={styles.header}>Settings</Text>
-
-        <TouchableOpacity
-          style={styles.optionCard}
-          onPress={() => setShowChangePassword(true)}>
-          <View style={styles.optionContent}>
+    <SafeAreaView style={styles.safeArea}>
+      <LinearGradient
+        colors={["#0A0F2C", "#1B103F", "#4A0E2E"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradient}>
+        <View style={styles.container}>
+          <View style={styles.headerSection}>
             <MaterialCommunityIcons
-              name="lock-reset"
-              size={28}
-              color="#fff"
-              style={{ marginRight: 12 }}
+              name="cog"
+              size={isTablet ? 32 : 28}
+              color="#FFFFFF"
+              style={styles.headerIcon}
             />
-            <Text style={styles.optionText}>Change Password</Text>
+            <Text style={styles.header}>Settings</Text>
           </View>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={24}
-            color="#E5E7EB"
-          />
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.optionCard, { backgroundColor: "#4A0E2E" }]}
-          onPress={() => setShowDeleteModal(true)}>
-          <View style={styles.optionContent}>
-            <MaterialCommunityIcons
-              name="account-remove-outline"
-              size={28}
-              color="#F43F5E"
-              style={{ marginRight: 12 }}
-            />
-            <Text style={[styles.optionText, { color: "#F43F5E" }]}>
-              Delete Account
-            </Text>
+          <View style={styles.optionsContainer}>
+            <TouchableOpacity
+              style={styles.optionCard}
+              onPress={() => setShowChangePassword(true)}
+              activeOpacity={0.8}>
+              <View style={styles.optionContent}>
+                <View style={styles.iconWrapper}>
+                  <MaterialCommunityIcons
+                    name="lock-reset"
+                    size={isTablet ? 30 : 28}
+                    color="#fff"
+                  />
+                </View>
+                <View style={styles.optionTextContainer}>
+                  <Text style={styles.optionText}>Change Password</Text>
+                  <Text style={styles.optionSubtext}>
+                    Update your account password
+                  </Text>
+                </View>
+              </View>
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={isTablet ? 28 : 24}
+                color="#E5E7EB"
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.optionCard, styles.deleteCard]}
+              onPress={() => setShowDeleteModal(true)}
+              activeOpacity={0.8}>
+              <View style={styles.optionContent}>
+                <View style={[styles.iconWrapper, styles.deleteIconWrapper]}>
+                  <MaterialCommunityIcons
+                    name="account-remove-outline"
+                    size={isTablet ? 30 : 28}
+                    color="#F43F5E"
+                  />
+                </View>
+                <View style={styles.optionTextContainer}>
+                  <Text style={[styles.optionText, styles.deleteText]}>
+                    Delete Account
+                  </Text>
+                  <Text style={[styles.optionSubtext, styles.deleteSubtext]}>
+                    Permanently remove your account
+                  </Text>
+                </View>
+              </View>
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={isTablet ? 28 : 24}
+                color="#F43F5E"
+              />
+            </TouchableOpacity>
           </View>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={24}
-            color="#F43F5E"
-          />
-        </TouchableOpacity>
-      </View>
+        </View>
 
-      <ChangePasswordModal
-        visible={showChangePassword}
-        onClose={() => setShowChangePassword(false)}
-      />
+        <ChangePasswordModal
+          visible={showChangePassword}
+          onClose={() => setShowChangePassword(false)}
+        />
 
-      <DeleteAccountModal
-        visible={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        onDelete={async (password) => {
-          try {
-            const auth = getAuth();
-            const currentUser = auth.currentUser;
+        <DeleteAccountModal
+          visible={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          onDelete={async (password) => {
+            try {
+              const auth = getAuth();
+              const currentUser = auth.currentUser;
 
-            if (!currentUser) throw new Error("No user logged in");
+              if (!currentUser) throw new Error("No user logged in");
 
-            await deleteAccountWithPassword(password);
+              await deleteAccountWithPassword(password);
 
-            removeUserFromState(currentUser.uid);
+              removeUserFromState(currentUser.uid);
 
-            navigation.replace("LoginScreen");
+              navigation.replace("LoginScreen");
 
-            Alert.alert("Deleted", "Your account has been deleted.");
-          } catch (err) {
-            console.error(err);
-            Alert.alert("Error", err.message || "Failed to delete account.");
-          }
-        }}
-      />
+              Alert.alert("Deleted", "Your account has been deleted.");
+            } catch (err) {
+              console.error(err);
+              Alert.alert("Error", err.message || "Failed to delete account.");
+            }
+          }}
+        />
 
-      <FooterMenu
-        activeIndex={2}
-        onPressDashboard={() => navigation.navigate("Home")}
-        onPressRequests={() => navigation.navigate("Requests")}
-        onPressSettings={() => {}}
-        onPressFriends={() => navigation.navigate("Friends")}
-      />
-    </LinearGradient>
+        <FooterMenu
+          activeIndex={2}
+          onPressDashboard={() => navigation.navigate("Home")}
+          onPressRequests={() => navigation.navigate("Requests")}
+          onPressSettings={() => {}}
+          onPressFriends={() => navigation.navigate("Friends")}
+        />
+      </LinearGradient>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#4F46E5",
+  },
   gradient: {
     flex: 1,
   },
   container: {
     flex: 1,
-    paddingHorizontal: width * 0.05,
-    paddingTop: height * 0.08,
+    paddingHorizontal: isTablet ? "20%" : 20,
+    paddingTop: isTablet ? 60 : 40,
+    paddingBottom: 100,
+  },
+  headerSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: isTablet ? 40 : 30,
+  },
+  headerIcon: {
+    marginRight: 12,
   },
   header: {
     color: "#fff",
-    fontSize: width * 0.07,
+    fontSize: isTablet ? 32 : 26,
     fontWeight: "700",
-    marginBottom: height * 0.08,
+  },
+  optionsContainer: {
+    gap: 16,
   },
   optionCard: {
-    backgroundColor: "#2A1A4B",
+    backgroundColor: "rgba(255,255,255,0.08)",
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: width * 0.04,
+    paddingVertical: isTablet ? 20 : 16,
+    paddingHorizontal: isTablet ? 22 : 18,
     borderRadius: 16,
-    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(124,30,255,0.3)",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 4,
   },
+  deleteCard: {
+    backgroundColor: "rgba(244, 63, 94, 0.1)",
+    borderColor: "rgba(244, 63, 94, 0.3)",
+  },
   optionContent: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
+    marginRight: 12,
+  },
+  iconWrapper: {
+    width: isTablet ? 56 : 50,
+    height: isTablet ? 56 : 50,
+    borderRadius: isTablet ? 28 : 25,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 16,
+  },
+  deleteIconWrapper: {
+    backgroundColor: "rgba(244, 63, 94, 0.15)",
+  },
+  optionTextContainer: {
+    flex: 1,
   },
   optionText: {
     color: "#fff",
-    fontSize: width * 0.045,
+    fontSize: isTablet ? 19 : 17,
     fontWeight: "600",
+    marginBottom: 4,
+  },
+  optionSubtext: {
+    color: "#9CA3AF",
+    fontSize: isTablet ? 14 : 13,
+    fontWeight: "400",
+  },
+  deleteText: {
+    color: "#F43F5E",
+  },
+  deleteSubtext: {
+    color: "rgba(244, 63, 94, 0.7)",
   },
 });
